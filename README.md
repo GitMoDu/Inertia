@@ -5,7 +5,7 @@ Embedded framework for robotic vehicles (quad-copters, rc cars, planes, etc...).
 ### Layered Architecture
 | Layer | Responsibility |
 |-------|----------------|
-| Model | Fundamental data types, units, integer angle conversion, abstract interfaces (`IDriver`, `IPeriodicDriver`, `IDataSource<T>`, driver task contracts) |
+| Model | Fundamental data types, units, integer angle conversion, abstract interfaces (`ILifecycleDriver`, `IPeriodicDriver`, `IDataSource<T>`, driver task contracts) |
 | Drivers | Concrete hardware or algorithmic data acquisition (IMU, optical flow, AHRS providers) implementing Model interfaces |
 | Composition | Variadic driver task wrappers aggregating multiple `IDataSource<T>` views and scheduling periodic `Step()` calls |
 | Scenes / Consumer Logic | Higher‑level modules consuming data |
@@ -30,9 +30,9 @@ angle_t a = Inertia::Model::GetIntegerAngle(headingDegrees);
 Rounding and wrap normalization are handled internally.
 
 ### Driver Interfaces
-- `IDriver`: lifecycle (`Start()`, `Stop()`, `Step()`) for non‑timed drivers
-- `IPeriodicDriver`: same contract (extended where needed) used by sensor implementations
-- `IDataSource<T>`: pull model; `GetData(T& out)` returns latest sample or false if unavailable
+- `ILifecycleDriver`: (`Start()`, `Stop()`). Basic driver lifecyle.
+- `IPeriodicDriver`: (`Step()`) extends `ILifecycleDriver`. Periodic update driver with lifecycle.
+- `IDataSource<T>`: (`GetData(T& out)` data retrieval interface, returns true when available.
 
 
 ### Variadic Driver Task Pattern
