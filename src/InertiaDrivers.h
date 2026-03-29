@@ -3,18 +3,19 @@
 
 #include "InertiaModel.h"
 
+// VG6328A UART module.
+#include "Drivers/Uart/VG6328A/DeviceDriver.h" 
+#include "Drivers/Uart/VG6328A/TemplateDriver.h"
 
-#include "Drivers/Uart/VG6328A.h" // Bare driver for the VG6328A UART module.
-#include "Drivers/Uart/VG6328ASerial.h" // Serial wrapper for the VG6328A UART module.
+// LSM6DS3 IMU sensor.
+#include "Drivers/Imu/LSM6DS3.h"
 
-#include "Drivers/Imu/LSM6DS3.h" // 6DOF IMU Driver.
+// QMI8658 IMU sensor.
+#include "Drivers/Imu/QMI8658.h"
 
-#include "Drivers/Imu/QMI8658.h" // 6DOF IMU Driver.
-
-
-// Optical Flow Driver with rangefinder.
-#include "Drivers/OpticalFlow/MTF0X.h"
-
+// MTF-01/02 Optical Flow and Range sensor.
+#include "Drivers/OpticalFlow/MTF0X/DeviceDriver.h"
+#include "Drivers/OpticalFlow/MTF0X/TemplateDriver.h"
 
 
 #endif
