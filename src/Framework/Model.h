@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 #include "Interface.h"
+#include <IntegerSignal.h>
+#include <IntegerTrigonometry.h>
 
 namespace Inertia
 {
