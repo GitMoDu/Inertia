@@ -1,0 +1,226 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Optical Flow Test Pattern</title>
+  <style>
+    html, body { margin:0; padding:0; height:100%; background:#000; overflow:hidden; }
+    canvas { width:100vw; height:100vh; display:block; image-rendering: pixelated; }
+    #ui {
+      position: fixed;
+      left: 12px; top: 12px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font: 14px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      padding: 10px 12px;
+      border-radius: 10px;
+      backdrop-filter: blur(4px);
+      user-select: none;
+    }
+    #ui label { display:block; margin-top:8px; }
+    #ui input[type="range"] { width: 260px; }
+    #ui .row { display:flex; gap:10px; align-items:center; margin-top:6px; flex-wrap:wrap; }
+    button { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color:#fff; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="ui">
+    <div><b>Optical flow “fake ground”</b></div>
+    <div style="opacity:0.9">Tip: full-screen, high brightness, disable auto-brightness.</div>
+
+    <label>Speed (px/s): <span id="spd">300</span></label>
+    <input id="speed" type="range" min="0" max="2000" value="300" step="10" />
+
+    <label>Direction</label>
+    <div class="row">
+      <button id="left">←</button>
+      <button id="right">→</button>
+      <button id="up">↑</button>
+      <button id="down">↓</button>
+      <button id="stop">Stop</button>
+    </div>
+
+    <label>Texture scale: <span id="scl">1.0</span>x</label>
+    <input id="scale" type="range" min="0.5" max="4.0" value="1.0" step="0.1" />
+
+    <div class="row">
+      <button id="regen">Regenerate texture</button>
+      <button id="fs">Full screen</button>
+    </div>
+
+    <div style="margin-top:8px; opacity:0.85">
+      If flow jitters: try a different brightness level (PWM), or reduce speed.
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    // Offscreen tile (noise texture)
+    const tile = document.createElement('canvas');
+    const tctx = tile.getContext('2d', { alpha: false });
+
+    // UI
+    const speedEl = document.getElementById('speed');
+    const spdTxt = document.getElementById('spd');
+    const scaleEl = document.getElementById('scale');
+    const sclTxt = document.getElementById('scl');
+
+    let vel = { x: 300, y: 0 };   // px/s
+    let texScale = 1.0;
+
+    function resize() {
+      const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.imageSmoothingEnabled = false;
+    }
+
+    function randU32(seed) {
+      // xorshift32
+      seed |= 0;
+      seed ^= seed << 13; seed |= 0;
+      seed ^= seed >>> 17;
+      seed ^= seed << 5; seed |= 0;
+      return seed >>> 0;
+    }
+
+    function generateNoiseTile() {
+      // Larger tile reduces repetition. Keep moderate for mobile.
+      const base = 512;
+      tile.width = base;
+      tile.height = base;
+      tctx.imageSmoothingEnabled = false;
+
+      const img = tctx.createImageData(base, base);
+      let seed = (Date.now() ^ (base * 2654435761)) >>> 0;
+
+      // Speckle-like pattern: mostly mid gray with random bright/dark dots and some blobs.
+      for (let i = 0; i < base * base; i++) {
+        seed = randU32(seed);
+        const r = seed & 0xFF;
+        // Make it high contrast but not saturated everywhere
+        let v = 96 + (r >> 1); // 96..223
+
+        // Add sparse strong dark/bright speckles
+        if ((seed & 0x3FF) === 0) v = 10;     // dark dot
+        if ((seed & 0x3FF) === 1) v = 245;    // bright dot
+
+        const o = i * 4;
+        img.data[o+0] = v;
+        img.data[o+1] = v;
+        img.data[o+2] = v;
+        img.data[o+3] = 255;
+      }
+      tctx.putImageData(img, 0, 0);
+
+      // Add some larger-scale structure (gentle) to help tracking at different heights
+      tctx.globalAlpha = 0.25;
+      for (let k = 0; k < 120; k++) {
+        seed = randU32(seed);
+        const x = seed % base;
+        seed = randU32(seed);
+        const y = seed % base;
+        seed = randU32(seed);
+        const rad = 6 + (seed % 28);
+        const g = tctx.createRadialGradient(x, y, 1, x, y, rad);
+        const shade = (seed & 1) ? 30 : 230;
+        g.addColorStop(0, `rgb(${shade},${shade},${shade})`);
+        g.addColorStop(1, `rgba(128,128,128,0)`);
+        tctx.fillStyle = g;
+        tctx.beginPath();
+        tctx.arc(x, y, rad, 0, Math.PI * 2);
+        tctx.fill();
+      }
+      tctx.globalAlpha = 1.0;
+    }
+
+    // Draw a translated, wrapped texture without seams
+    let offsetX = 0, offsetY = 0;
+    let lastT = performance.now();
+
+    function draw(now) {
+      const dt = Math.min(0.05, (now - lastT) / 1000);
+      lastT = now;
+
+      offsetX = (offsetX + vel.x * dt) % tile.width;
+      offsetY = (offsetY + vel.y * dt) % tile.height;
+      if (offsetX < 0) offsetX += tile.width;
+      if (offsetY < 0) offsetY += tile.height;
+
+      const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      const w = canvas.width, h = canvas.height;
+
+      // Texture scale: <1 => bigger features; >1 => finer features
+      const sx = texScale * dpr;
+      ctx.setTransform(sx, 0, 0, sx, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+
+      // Fill with repeated tile; draw 4 quads to cover wrap
+      const vw = w / sx, vh = h / sx;
+      const ox = offsetX, oy = offsetY;
+
+      // top-left
+      ctx.drawImage(tile, -ox, -oy);
+      // top-right
+      ctx.drawImage(tile, tile.width - ox, -oy);
+      // bottom-left
+      ctx.drawImage(tile, -ox, tile.height - oy);
+      // bottom-right
+      ctx.drawImage(tile, tile.width - ox, tile.height - oy);
+
+      // Ensure full coverage if viewport bigger than 1 tile (rare at low scale)
+      // Simple extra fill loops:
+      for (let x = -ox; x < vw; x += tile.width) {
+        for (let y = -oy; y < vh; y += tile.height) {
+          ctx.drawImage(tile, x, y);
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    function setDir(dx, dy) {
+      const spd = Number(speedEl.value);
+      vel.x = dx * spd;
+      vel.y = dy * spd;
+    }
+
+    // Wire UI
+    speedEl.addEventListener('input', () => {
+      spdTxt.textContent = speedEl.value;
+      // preserve direction sign
+      const sx = Math.sign(vel.x), sy = Math.sign(vel.y);
+      if (sx !== 0 || sy !== 0) setDir(sx, sy);
+    });
+
+    scaleEl.addEventListener('input', () => {
+      texScale = Number(scaleEl.value);
+      sclTxt.textContent = texScale.toFixed(1);
+    });
+
+    document.getElementById('left').onclick  = () => setDir(-1, 0);
+    document.getElementById('right').onclick = () => setDir( 1, 0);
+    document.getElementById('up').onclick    = () => setDir(0, -1);
+    document.getElementById('down').onclick  = () => setDir(0,  1);
+    document.getElementById('stop').onclick  = () => { vel.x = 0; vel.y = 0; };
+
+    document.getElementById('regen').onclick = () => generateNoiseTile();
+
+    document.getElementById('fs').onclick = async () => {
+      try { await document.documentElement.requestFullscreen(); } catch (e) {}
+    };
+
+    // Start
+    resize();
+    window.addEventListener('resize', resize);
+    generateNoiseTile();
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>
