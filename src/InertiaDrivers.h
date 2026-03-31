@@ -13,6 +13,10 @@
 // QMI8658 IMU sensor.
 #include "Drivers/Imu/QMI8658.h"
 
+// MPU6050 IMU sensor.
+#include "Drivers/Imu/MPU6050/DeviceDriver.h"
+#include "Drivers/Imu/MPU6050/TemplateDriver.h"
+
 // MTF-01/02 Optical Flow and Range sensor.
 #include "Drivers/OpticalFlow/MTF0X/DeviceDriver.h"
 #include "Drivers/OpticalFlow/MTF0X/TemplateDriver.h"
