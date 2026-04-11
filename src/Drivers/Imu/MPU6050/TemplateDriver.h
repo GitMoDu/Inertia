@@ -13,13 +13,31 @@ namespace Inertia
 		{
 			namespace Mpu6050
 			{
+				static constexpr uint32_t LOG_TAG = 867172820; // Random unique tag for Mpu6050 logs.
+
+				enum class LogCodeEnum : uint8_t
+				{
+					ErrorBoot,
+					ErrorReadMotion,
+					ErrorReadTemperature,
+					RecoveryAttempt
+				};
+
+				struct LogRecoveryAttempt
+				{
+					static uint8_t GetRecoveryCount(const Inertia::Model::LogEntryStruct& entry)
+					{
+						return entry.Value;
+					}
+				};
+			}
+
+			namespace Mpu6050
+			{
 				using namespace IntegerSignal;
 				using namespace IntegerSignal::FixedPoint::FactorScale;
 
-				static constexpr uint32_t CLOCK_SPEED_I2C = 400000;
 
-				static constexpr uint8_t SETUP_TIMEOUT_MS = 4;
-				static constexpr uint8_t READ_TIMEOUT_MS = 1;
 
 				/// <summary>
 				/// Accelerometer full-scale range.
@@ -59,23 +77,25 @@ namespace Inertia
 
 				/// <summary>
 				/// Driver for MPU6050 IMU. Manages the MPU6050 sensor, samples acceleration, gyro, and temperature data, and exposes the latest timestamped sample to callers.
-			 /// Uses the local MPU6050 I2C device driver around Model::IPeriodicDriver and exposes the latest IMU data.
+				/// Uses the local MPU6050 I2C device driver around Model::IPeriodicDriver and exposes the latest IMU data.
 				/// </summary>
-				/// <typeparam name="Address">I2C device address. Use DEVICE_ADDRESS_LOW (AD0 low) or DEVICE_ADDRESS_HIGH (AD0 high).</typeparam>
+				/// <typeparam name="Address">I2C device address.</typeparam>
 				/// <typeparam name="accelerometerRange">Accelerometer full-scale range.</typeparam>
 				/// <typeparam name="gyroscopeRange">Gyroscope full-scale range.</typeparam>
 				/// <typeparam name="dlpfMode">Digital low-pass filter mode.</typeparam>
 				template<uint8_t Address = Device::DEVICE_ADDRESS_LOW,
 					AccelerometerRangeEnum accelerometerRange = AccelerometerRangeEnum::Range16g,
 					GyroscopeRangeEnum gyroscopeRange = GyroscopeRangeEnum::Range2000dps,
-					DlpfModeEnum dlpfMode = DlpfModeEnum::Bw42>
+					DlpfModeEnum dlpfMode = DlpfModeEnum::Bw98,
+					uint32_t RecoveryTimeoutMillis = 10
+				>
 				class TemplateDriver : public Model::IPeriodicDriver,
 					public Model::IDataSource<Model::timestamped_acceleration_t>,
 					public Model::IDataSource<Model::timestamped_angular_velocity_t>,
 					public Model::IDataSource<Model::timestamped_temperature_t>
 				{
 				public:
-					using DataTypes = Inertia::Drivers::Variadic::VariadicDataTypeList<
+					using DataTypes = Inertia::Components::Variadic::VariadicDataTypeList<
 						Inertia::Model::timestamped_acceleration_t,
 						Inertia::Model::timestamped_angular_velocity_t,
 						Inertia::Model::timestamped_temperature_t>;
@@ -86,9 +106,19 @@ namespace Inertia
 					static constexpr int16_t TEMPERATURE_KELVIN_OFFSET = 27315; // 273.15 degrees Celsius in centi-degrees.
 					static constexpr int16_t TEMPERATURE_CONVERSION_OFFSET = TEMPERATURE_KELVIN_OFFSET + TEMPERATURE_OFFSET_CENTI_DEG;
 
+					static constexpr uint32_t CLOCK_SPEED_I2C = 400000;
+
+					static constexpr uint8_t SETUP_TIMEOUT_MS = 4;
+					static constexpr uint8_t READ_TIMEOUT_MS = 2;
+
+				public:
+					Inertia::Model::ILogListener* LogListener = nullptr;
+					uint8_t InstanceId = 0; // Optional instance ID for distinguishing between multiple IMU instances in logs.
+
 				private:
 					TwoWire& WireInstance;
 
+				private:
 					using DeviceDriverType = Device::Driver;
 					DeviceDriverType DeviceDriver;
 
@@ -100,9 +130,15 @@ namespace Inertia
 					Model::timestamped_angular_velocity_t AngularVelocityData{};
 					Model::timestamped_temperature_t TemperatureData{};
 
+					uint32_t LastErrorTimestamp = 0;
+
 					scale16_t AccelScaleFactor = 0;
 					scale16_t GyroScaleFactor = 0;
 					scale16_t TempScaleFactor = 0;
+
+					uint8_t RecoveryCount = 0;
+
+					bool HasLoggedReadError = false;
 					bool ImuDataAvailable = false;
 
 				public:
@@ -155,6 +191,16 @@ namespace Inertia
 							|| !DeviceDriver.setFullScaleGyroRange(uint8_t(GyroRange))
 							|| !DeviceDriver.setDLPFMode(uint8_t(DlpfMode)))
 						{
+							if (LogListener != nullptr)
+							{
+								LogListener->OnLog(Inertia::Model::LogEntryStruct{
+									.Tag = LOG_TAG,
+									.Instance = InstanceId,
+									.Type = Inertia::Model::LogTypeEnum::Error,
+									.Code = static_cast<uint8_t>(LogCodeEnum::ErrorBoot),
+									.Value = 0
+									});
+							}
 							return false;
 						}
 
@@ -186,13 +232,21 @@ namespace Inertia
 						WireInstance.setTimeout(READ_TIMEOUT_MS, true);
 #endif
 
-						// Scope the motion data reading to avoid stack usage of the raw data variables.
+						// Scope the motion data reading to avoid deep stack usage of the raw data variables.
 						{
 							int16_t ax, ay, az, gx, gy, gz;
 							if (!DeviceDriver.getMotion6(&ax, &ay, &az, &gx, &gy, &gz))
 							{
-								//Serial.println("Failed to read motion data from MPU6050.");
-								RecoverI2c();
+								if (LogListener != nullptr)
+								{
+									LogListener->OnLog(Inertia::Model::LogEntryStruct{
+										.Tag = LOG_TAG,
+										.Instance = InstanceId,
+										.Type = Inertia::Model::LogTypeEnum::Error,
+										.Code = static_cast<uint8_t>(LogCodeEnum::ErrorReadMotion),
+										.Value = 0
+										});
+								}
 								return;
 							}
 
@@ -209,12 +263,20 @@ namespace Inertia
 							AngularVelocityData.timestamp = timestamp;
 						}
 
-
 						int16_t rawTemp = 0;
 						if (!DeviceDriver.getTemperature(rawTemp))
 						{
-							//Serial.println("Failed to read temperature data from MPU6050.");
-							RecoverI2c();
+							if (LogListener != nullptr)
+							{
+								LogListener->OnLog(Inertia::Model::LogEntryStruct{
+									.Tag = LOG_TAG,
+									.Instance = InstanceId,
+									.Type = Inertia::Model::LogTypeEnum::Error,
+									.Code = static_cast<uint8_t>(LogCodeEnum::ErrorReadTemperature),
+									.Value = 0
+									});
+							}
+
 							return;
 						}
 
@@ -231,16 +293,35 @@ namespace Inertia
 					}
 
 				private:
-					void RecoverI2c()
+					void OnError()
 					{
-						// Attempt to recover the I2C bus by sending a stop condition and clearing any error states.
-						WireInstance.endTransmission();
-#if defined(ARDUINO_ARCH_RP2040)
-						WireInstance.clearTimeoutFlag();
-						WireInstance.abortAsync();
-						WireInstance.clearWriteError();
-#endif
+						const uint32_t timestamp = millis();
+						const uint32_t elapsedSinceLastError = timestamp - LastErrorTimestamp;
+						LastErrorTimestamp = timestamp;
+
+						if (!HasLoggedReadError)
+						{
+							HasLoggedReadError = true;
+						}
+						else if (timestamp - LastErrorTimestamp < RecoveryTimeoutMillis)
+						{
+							RecoveryCount++;
+							if (LogListener != nullptr)
+							{
+								LogListener->OnLog(Inertia::Model::LogEntryStruct{
+									.Tag = LOG_TAG,
+									.Instance = InstanceId,
+									.Type = Inertia::Model::LogTypeEnum::Error,
+									.Code = static_cast<uint8_t>(LogCodeEnum::RecoveryAttempt),
+									.Value = RecoveryCount 
+									});
+							}
+
+							Inertia::Drivers::I2cInterface::RecoverInterface(WireInstance);
+							HasLoggedReadError = false; // Reset error logging after recovery attempt.
+						}
 					}
+
 				};
 			}
 		}

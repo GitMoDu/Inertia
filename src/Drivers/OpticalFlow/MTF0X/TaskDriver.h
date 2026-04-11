@@ -17,36 +17,36 @@ namespace Inertia
 			{
 				template<typename SerialType,
 					uint8_t MaxReadBytes = 32>
-				class TemplateDriver : public Model::ILifecycleDriver
-					, public Model::IDataSource<Model::timestamped_flow_translation_t>
-					, public Model::IDataSource<Model::timestamped_range16_t>
+				class TaskDriver : public Model::ILifecycleDriver
+					, public Model::IDataSource<Model::timestamped_quality_flow_translation_t>
+					, public Model::IDataSource<Model::timestamped_quality_range16_t>
 					, private TS::Task
 				{
 				public:
-					using DataTypes = Drivers::Variadic::VariadicDataTypeList<
-						Model::timestamped_flow_translation_t,
-						Model::timestamped_range16_t>;
+					using DataTypes = Components::Variadic::VariadicDataTypeList<
+						Model::timestamped_quality_flow_translation_t,
+						Model::timestamped_quality_range16_t>;
 
 				private:
 					Device::Driver DeviceDriver{};
 					SerialType& SerialInstance;
 
 				public:
-					TemplateDriver(TS::Scheduler& scheduler, SerialType& serial_port)
+					TaskDriver(TS::Scheduler& scheduler, SerialType& serial_port)
 						: Model::ILifecycleDriver()
-						, Model::IDataSource<Model::timestamped_flow_translation_t>()
-						, Model::IDataSource<Model::timestamped_range16_t>()
+						, Model::IDataSource<Model::timestamped_quality_flow_translation_t>()
+						, Model::IDataSource<Model::timestamped_quality_range16_t>()
 						, TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 						, SerialInstance(serial_port)
 					{}
 
 					// Delegates directly to DeviceDriver — no intermediate copy.
-					bool GetData(Model::timestamped_flow_translation_t& out_data) final
+					bool GetData(Model::timestamped_quality_flow_translation_t& out_data) final
 					{
 						return DeviceDriver.GetFlow(out_data);
 					}
 
-					bool GetData(Model::timestamped_range16_t& out_data) final
+					bool GetData(Model::timestamped_quality_range16_t& out_data) final
 					{
 						return DeviceDriver.GetRange(out_data);
 					}

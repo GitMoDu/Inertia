@@ -3,9 +3,13 @@
 
 #include "InertiaModel.h"
 
+// I2C interface.
+#include "Drivers/I2c/I2cInterface.h" 
+
 // VG6328A UART module.
 #include "Drivers/Uart/VG6328A/DeviceDriver.h" 
-#include "Drivers/Uart/VG6328A/TemplateDriver.h"
+#include "Drivers/Uart/VG6328A/StreamDriver.h"
+#include "Drivers/Uart/VG6328A/WatchDogTask.h"
 
 // LSM6DS3 IMU sensor.
 #include "Drivers/Imu/LSM6DS3.h"
@@ -19,7 +23,9 @@
 
 // MTF-01/02 Optical Flow and Range sensor.
 #include "Drivers/OpticalFlow/MTF0X/DeviceDriver.h"
-#include "Drivers/OpticalFlow/MTF0X/TemplateDriver.h"
+#include "Drivers/OpticalFlow/MTF0X/TaskDriver.h"
+
+
 
 
 #endif

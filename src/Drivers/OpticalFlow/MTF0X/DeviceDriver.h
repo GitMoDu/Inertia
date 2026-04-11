@@ -62,8 +62,8 @@ namespace Inertia
 						uint8_t CurrentPayload[MAX_PAYLOAD_SIZE]{};
 
 					private:
-						Model::timestamped_flow_translation_t FlowData{};
-						Model::timestamped_range16_t RangeData{};
+						Model::timestamped_quality_flow_translation_t FlowData{};
+						Model::timestamped_quality_range16_t RangeData{};
 						bool FlowDataAvailable = false;
 						bool RangeDataAvailable = false;
 
@@ -84,11 +84,11 @@ namespace Inertia
 					public:
 						Driver() {}
 
-						bool GetFlow(Model::timestamped_flow_translation_t& out_data)
+						bool GetFlow(Model::timestamped_quality_flow_translation_t& out_data)
 						{
 							if (FlowDataAvailable)
 							{
-								memcpy(&out_data, &FlowData, sizeof(Model::timestamped_flow_translation_t));
+								memcpy(&out_data, &FlowData, sizeof(Model::timestamped_quality_flow_translation_t));
 								FlowDataAvailable = false; // Consume — caller must wait for next packet.
 								return true;
 							}
@@ -96,11 +96,11 @@ namespace Inertia
 							return false;
 						}
 
-						bool GetRange(Model::timestamped_range16_t& out_data)
+						bool GetRange(Model::timestamped_quality_range16_t& out_data)
 						{
 							if (RangeDataAvailable)
 							{
-								memcpy(&out_data, &RangeData, sizeof(Model::timestamped_range16_t));
+								memcpy(&out_data, &RangeData, sizeof(Model::timestamped_quality_range16_t));
 								RangeDataAvailable = false; // Consume — caller must wait for next packet.
 								return true;
 							}
@@ -360,7 +360,7 @@ namespace Inertia
 
 							RangeData.distance = static_cast<Model::range16_t>(clamped_distance_mm);
 							RangeData.timestamp = micros();
-							//RangeData.quality = quality;
+							RangeData.quality = quality;
 							RangeDataAvailable = true;
 							RangePacketCount++;
 						}

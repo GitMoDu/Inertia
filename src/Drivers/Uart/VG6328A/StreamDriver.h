@@ -1,7 +1,10 @@
 #ifndef _INERTIA_DRIVERS_UART_VG6328A_TEMPLATE_DRIVER_h
 #define _INERTIA_DRIVERS_UART_VG6328A_TEMPLATE_DRIVER_h
 
-#include "../../../Framework/Model.h"
+#define _TASK_OO_CALLBACKS
+#include <TSchedulerDeclarations.hpp>
+
+#include "Model.h"
 #include <Stream.h>
 #include "DeviceDriver.h"
 
@@ -22,7 +25,8 @@ namespace Inertia
 				/// </summary>
 				/// <typeparam name="SerialType">The underlying serial communication type (e.g., HardwareSerial, SoftwareSerial) used to communicate with the VG6328A device.</typeparam>
 				template<typename SerialType>
-				class TemplateDriver : public Stream
+				class StreamDriver : public Inertia::Model::ILifecycleDriver
+					, public Stream
 				{
 				private:
 					using Driver = Device::Driver;
@@ -30,20 +34,28 @@ namespace Inertia
 					bool DeviceReady = false;
 
 				private:
+					const char* DeviceName = "XLBLE";
+
+				private:
 					SerialType& SerialInstance;
 
 				public:
-					TemplateDriver(SerialType& serial)
-						: Stream()
+					StreamDriver(SerialType& serial)
+						: Inertia::Model::ILifecycleDriver()
+						, Stream()
 						, SerialInstance(serial)
 					{}
 
-					bool Start()
+
+					bool Setup(const char* name)
 					{
-						return Start("XLBLE");
+						DeviceName = name;
+
+						//TODO: Return true if device name is valid (null terminated)
+						return true;
 					}
 
-					bool Start(const char* name)
+					bool Start() override
 					{
 						// Ensure clean state.
 						if (DeviceReady)
@@ -66,7 +78,7 @@ namespace Inertia
 						if (!Driver::getFlashUidLine(SerialInstance, DeviceId, sizeof(DeviceId))) { return false; }
 
 						// Set name for both SPP and BLE to ensure consistent identification across connection types.
-						if (!Driver::setBLEName(SerialInstance, name)) { return false; }
+						if (!Driver::setBLEName(SerialInstance, DeviceName)) { return false; }
 
 						// Stop unused Bluetooth Classic (SPP) mode.
 						if (!Driver::disconnectSPP(SerialInstance)) { return false; }
@@ -115,7 +127,7 @@ namespace Inertia
 						}
 					}
 
-					void Stop()
+					void Stop() override
 					{
 						if (DeviceReady)
 						{
@@ -126,6 +138,18 @@ namespace Inertia
 						SerialInstance.end();
 					}
 
+					// Hardware serial interface. begin and end are no-ops since initialization and cleanup are handled in Start and Stop.
+				public:
+					void begin(unsigned long baudRate = 0)
+					{}
+
+					void end()
+					{}
+
+					operator bool() const
+					{
+						return DeviceReady;
+					}
 
 					// Stream interface implementation. All operations check DeviceReady before proceeding.
 				public:
@@ -189,7 +213,7 @@ namespace Inertia
 						return SerialInstance.write(buf, n);
 					}
 
-					using Print::write;
+					using Stream::write;
 				};
 			}
 
