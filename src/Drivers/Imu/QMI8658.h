@@ -75,7 +75,7 @@ namespace Inertia
 				public Model::IDataSource<Model::timestamped_temperature_t>
 			{
 			public:
-				using DataTypes = Inertia::Drivers::Variadic::VariadicDataTypeList<
+				using DataTypes = Inertia::Components::Variadic::VariadicDataTypeList<
 					Inertia::Model::timestamped_acceleration_t,
 					Inertia::Model::timestamped_angular_velocity_t,
 					Inertia::Model::timestamped_temperature_t>;
