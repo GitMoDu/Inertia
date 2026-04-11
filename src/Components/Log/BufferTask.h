@@ -28,7 +28,9 @@ namespace Inertia
 				, public TS::Task
 			{
 			private:
-				static constexpr uint8_t DebugPersistPrintLimit = 8;
+				static constexpr uint8_t PUSH_PERIOD = 2;
+				static constexpr uint8_t HOLD_PERIOD = 5;
+				static constexpr uint8_t RETRY_PERIOD = 10;
 
 				struct BufferedLogEntryStruct
 				{
@@ -67,7 +69,7 @@ namespace Inertia
 					{
 						if (LogRepository.IsFull())
 						{
-							TS::Task::enableDelayed(10); // Retry after a delay if the repository is full.
+							TS::Task::enableDelayed(RETRY_PERIOD); // Retry after a delay if the repository is full.
 							return true;
 						}
 
@@ -78,7 +80,6 @@ namespace Inertia
 						// Offset the millis timestamp with the entry timestamp.
 						const uint32_t previous = timestamp.timestamp;
 						timestamp.timestamp -= (currentMillis - bufferedLog.Timestamp);
-
 						if (timestamp.timestamp > previous)
 						{
 							timestamp.overflows -= 1; // Adjust overflow count if the timestamp underflowed due to the offset.
@@ -88,16 +89,26 @@ namespace Inertia
 						{
 							Tail = (Tail + 1) % BufferSize;
 							--Count;
-							TS::Task::enableDelayed(1); // Quickly process the next log entry if available.
+
+							if (Count > BufferSize / 2)
+							{
+								TS::Task::enableDelayed(0); // Immediately process the next log entry if the buffer is more than half full.
+							}
+							else
+							{
+								TS::Task::enableDelayed(PUSH_PERIOD); // Process the next log entry after a short delay to avoid hogging the processor.
+							}
 						}
 						else
 						{
-							TS::Task::enableDelayed(10); // Retry after a delay if the repository is unable to accept the log entry.
-							return true;
+							TS::Task::enableDelayed(RETRY_PERIOD); // Retry after a delay if the repository is unable to accept the log entry.
 						}
 					}
+					else
+					{
+						TS::Task::disable();
+					}
 
-					TS::Task::disable();
 					return true;
 				}
 
@@ -126,7 +137,17 @@ namespace Inertia
 						++Count;
 					}
 
-					TS::Task::enableDelayed(0);
+					if (!TS::Task::isEnabled())
+					{
+						if (Count < 2)
+						{
+							TS::Task::enableDelayed(HOLD_PERIOD);
+						}
+						else
+						{
+							TS::Task::enableDelayed(PUSH_PERIOD);
+						}
+					}
 				}
 			};
 		}
