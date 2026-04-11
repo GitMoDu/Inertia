@@ -21,10 +21,8 @@ namespace Inertia
 			/// A buffered log listener task that asynchronously processes and stores log entries in a circular buffer before forwarding them to a log repository.
 			/// </summary>
 			/// <typeparam name="BufferSize">The size of the circular buffer for storing log entries. Must be greater than zero. Defaults to 32.</typeparam>
-			/// <typeparam name="CoalescePeriodMillis">The period in milliseconds to coalesce log entries before processing. Defaults to 500.</typeparam>
 			template<Inertia::Model::LogTypeEnum LogLevel = Inertia::Model::LogTypeEnum::Debug,
-				size_t BufferSize = 32,
-				uint32_t CoalescePeriodMillis = 500>
+				size_t BufferSize = 32>
 			class BufferTask
 				: public Inertia::Model::ILogListener
 				, public TS::Task
@@ -74,21 +72,7 @@ namespace Inertia
 						}
 
 						const auto& bufferedLog = Buffer[Tail];
-
-						bool push = false;
-						if (Count > BufferSize / 2)
-						{
-							// If the buffer is more than half full, process logs more aggressively to prevent overflow.
-							push = true;
-						}
-
 						const uint32_t currentMillis = millis();
-
-						if (!push && ((currentMillis - bufferedLog.Timestamp) > CoalescePeriodMillis))
-						{
-							// If the last log entry has been in the buffer for more than the period, process it to prevent excessive delay.
-							push = true;
-						}
 
 						Inertia::Model::millis_timestamp_t timestamp = TimestampSource.GetMillisTimestamp();
 						// Offset the millis timestamp with the entry timestamp.
@@ -100,7 +84,7 @@ namespace Inertia
 							timestamp.overflows -= 1; // Adjust overflow count if the timestamp underflowed due to the offset.
 						}
 
-						if (push && LogRepository.AddEntry(BootId, timestamp, bufferedLog.LogEntry))
+						if (LogRepository.AddEntry(BootId, timestamp, bufferedLog.LogEntry))
 						{
 							Tail = (Tail + 1) % BufferSize;
 							--Count;
@@ -108,7 +92,7 @@ namespace Inertia
 						}
 						else
 						{
-							TS::Task::enableDelayed(10); // Retry after a delay if the repository is full or unable to accept the log entry.
+							TS::Task::enableDelayed(10); // Retry after a delay if the repository is unable to accept the log entry.
 							return true;
 						}
 					}
