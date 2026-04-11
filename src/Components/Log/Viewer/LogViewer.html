@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inertia Event Log Visualizer</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121936;
+      --panel-2:#182145;
+      --muted:#98a2c7;
+      --text:#edf2ff;
+      --accent:#79c0ff;
+      --accent-2:#8bffb0;
+      --warn:#ffd166;
+      --error:#ff6b6b;
+      --debug:#8f9bb3;
+      --info:#79c0ff;
+      --ok:#8bffb0;
+      --border:#2a356d;
+      --chip:#24305f;
+      --shadow: 0 10px 30px rgba(0,0,0,.28);
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      padding:0;
+      background:linear-gradient(180deg,#0b1020,#0d1430 30%, #0b1020);
+      color:var(--text);
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      min-height:100%;
+      overflow-x:hidden;
+    }
+    body{
+      padding:12px;
+    }
+    h1,h2,h3{
+      margin:0 0 10px;
+      line-height:1.2;
+    }
+    .app{
+      display:grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap:12px;
+      align-items:start;
+      width:100%;
+      max-width:100%;
+    }
+    .panel{
+      background:rgba(18,25,54,.95);
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow:var(--shadow);
+    }
+    .sidebar{
+      position:sticky;
+      top:12px;
+      padding:14px;
+    }
+    .main{
+      display:grid;
+      gap:12px;
+      min-width:0;
+    }
+    .toolbar{
+      padding:14px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .toolbar-left,.toolbar-right{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      min-width:0;
+    }
+    .toolbar-right{
+      justify-content:flex-end;
+    }
+    .btn, .file-label{
+      background:var(--panel-2);
+      color:var(--text);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 14px;
+      cursor:pointer;
+      font-weight:600;
+      transition:.15s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      text-decoration:none;
+      user-select:none;
+    }
+    .btn:hover, .file-label:hover{
+      transform:translateY(-1px);
+      border-color:var(--accent);
+    }
+    .btn.secondary{
+      background:#10172f;
+    }
+    .btn.accent{
+      background:#1b2b54;
+      border-color:#3766c6;
+    }
+    input[type="file"]{
+      display:none;
+    }
+    .dropzone{
+      padding:16px;
+      border:1.5px dashed #4460b6;
+      background:rgba(24,33,69,.45);
+      border-radius:14px;
+      color:var(--muted);
+      text-align:center;
+      font-size:14px;
+    }
+    .dropzone.drag{
+      border-color:var(--accent-2);
+      color:var(--text);
+      background:rgba(39,61,104,.55);
+    }
+    .section{
+      padding:14px;
+    }
+    .section + .section{
+      border-top:1px solid rgba(255,255,255,.06);
+    }
+    .muted{
+      color:var(--muted);
+      font-size:13px;
+    }
+    .filters{
+      display:grid;
+      gap:12px;
+    }
+    .field{
+      display:grid;
+      gap:6px;
+    }
+    .field label{
+      font-size:13px;
+      color:#c9d3f5;
+      font-weight:600;
+    }
+    .field input[type="text"],
+    .field input[type="datetime-local"],
+    .field select{
+      width:100%;
+      background:#0f1630;
+      color:var(--text);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:10px 12px;
+      outline:none;
+    }
+    .field input:focus,
+    .field select:focus{
+      border-color:var(--accent);
+    }
+    .checkboxes{
+      display:grid;
+      gap:8px;
+    }
+    .checkbox{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      font-size:14px;
+      color:#dbe5ff;
+    }
+    .inline-controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+    .inline-controls label{
+      font-size:12px;
+      color:#c9d3f5;
+      font-weight:600;
+    }
+    .inline-controls input[type="number"]{
+      width:84px;
+      background:#0f1630;
+      color:var(--text);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px 10px;
+      outline:none;
+    }
+    .grid-cards{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
+      gap:10px;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(29,40,82,.9), rgba(20,28,58,.92));
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      min-height:84px;
+    }
+    .card .label{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:8px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .card .value{
+      font-size:24px;
+      font-weight:800;
+    }
+    .card .sub{
+      margin-top:6px;
+      font-size:12px;
+      color:#c8d2f1;
+    }
+    .row{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+    }
+    .chart-panel{
+      padding:14px;
+    }
+    .chart-title{
+      margin-bottom:10px;
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+    }
+    svg{
+      width:100%;
+      height:auto;
+      display:block;
+      background:#0c1330;
+      border:1px solid rgba(255,255,255,.05);
+      border-radius:12px;
+    }
+    #timelineChart{
+      cursor:grab;
+      touch-action:none;
+      user-select:none;
+      -webkit-user-select:none;
+    }
+    #timelineChart.dragging{
+      cursor:grabbing;
+    }
+    #timelineChart *{
+      user-select:none;
+      -webkit-user-select:none;
+    }
+    .legend{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+    .chip{
+      background:var(--chip);
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .dot{
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      display:inline-block;
+    }
+    .table-wrap{
+      overflow:auto;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.06);
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:0;
+      table-layout:fixed;
+      background:#0d1430;
+    }
+    th,td{
+      padding:8px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:12px;
+      text-align:left;
+      vertical-align:top;
+    }
+    th{
+      position:sticky;
+      top:0;
+      background:#131b3d;
+      color:#dfe7ff;
+      z-index:1;
+      cursor:pointer;
+      user-select:none;
+      white-space:nowrap;
+    }
+    td{
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+    tbody tr:hover{
+      background:rgba(121,192,255,.08);
+    }
+    .sev{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .sev.debug{ background:rgba(143,155,179,.12); color:#c2cad8; }
+    .sev.info{ background:rgba(121,192,255,.12); color:#bfe3ff; }
+    .sev.warning{ background:rgba(255,209,102,.12); color:#ffe29d; }
+    .sev.error{ background:rgba(255,107,107,.12); color:#ffb3b3; }
+    .split{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+    }
+    .detail{
+      padding:14px;
+    }
+    .detail pre{
+      margin:0;
+      white-space:pre-wrap;
+      word-break:break-word;
+      background:#0d1430;
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:12px;
+      padding:12px;
+      color:#dce6ff;
+      font-size:13px;
+    }
+    .tooltip{
+      position:fixed;
+      z-index:1000;
+      max-width:360px;
+      background:rgba(10,16,34,.97);
+      color:var(--text);
+      border:1px solid var(--border);
+      border-radius:12px;
+      box-shadow:var(--shadow);
+      padding:12px;
+      pointer-events:auto;
+      font-size:12px;
+      line-height:1.45;
+    }
+    .tooltip-title{
+      font-size:13px;
+      font-weight:700;
+      margin-bottom:8px;
+      color:#dfe7ff;
+    }
+    .tooltip-list{
+      display:grid;
+      gap:6px;
+      max-height:220px;
+      overflow:auto;
+      padding-right:4px;
+    }
+    .tooltip-item{
+      padding:6px 8px;
+      border-radius:8px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.05);
+    }
+    .status{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .hidden{
+      display:none!important;
+    }
+    .footer-note{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:8px;
+    }
+    .small{
+      font-size:12px;
+    }
+    .mono{
+      font-family:Consolas, "Cascadia Mono", monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 1400px){
+      .app{ grid-template-columns:1fr; }
+      .sidebar{ position:static; }
+      .grid-cards{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .row, .split{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <h1>Inertia Log Viewer</h1>
+
+      <div class="dropzone" id="dropzone">
+        Drag & drop CSV files here<br/>
+        <span class="small">or use the buttons on the right</span>
+      </div>
+
+      <div class="section" style="padding-left:0;padding-right:0;">
+        <h3>Filters</h3>
+        <div class="filters">
+          <div class="field">
+            <label for="searchText">Text search</label>
+            <input id="searchText" type="text" placeholder="Search any field..." />
+          </div>
+
+          <div class="field">
+            <label for="bootFilter">bootId</label>
+            <select id="bootFilter" multiple size="5"></select>
+          </div>
+
+          <div class="field">
+            <label for="tagFilter">tag</label>
+            <select id="tagFilter" multiple size="6"></select>
+          </div>
+
+          <div class="field">
+            <label for="instanceFilter">instance</label>
+            <select id="instanceFilter" multiple size="4"></select>
+          </div>
+
+          <div class="field">
+            <label for="codeFilter">code</label>
+            <select id="codeFilter" multiple size="6"></select>
+          </div>
+
+          <div class="field">
+            <label>Severity</label>
+            <div class="checkboxes">
+              <label class="checkbox"><input type="checkbox" class="typeToggle" value="0" checked /> Debug</label>
+              <label class="checkbox"><input type="checkbox" class="typeToggle" value="1" checked /> Info</label>
+              <label class="checkbox"><input type="checkbox" class="typeToggle" value="2" checked /> Warning</label>
+              <label class="checkbox"><input type="checkbox" class="typeToggle" value="3" checked /> Error</label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="timeStart">Start UTC</label>
+            <input id="timeStart" type="text" placeholder="2026-01-31T12:34:56Z" />
+          </div>
+
+          <div class="field">
+            <label for="timeEnd">End UTC</label>
+            <input id="timeEnd" type="text" placeholder="2026-01-31T12:35:56Z" />
+          </div>
+
+          <div class="field">
+            <div class="checkboxes">
+              <label class="checkbox"><input id="hideInvalidRows" type="checkbox" /> Hide invalid rows</label>
+              <label class="checkbox"><input id="onlyCrcMismatch" type="checkbox" /> Show CRC mismatch only</label>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn secondary" id="resetFiltersBtn">Reset filters</button>
+            <button class="btn secondary" id="clearDataBtn">Clear data</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="panel toolbar">
+        <div class="toolbar-left">
+          <button class="btn secondary" id="pickFilesBtn" type="button">Select CSV files</button>
+          <input id="fileInput" type="file" accept=".csv,text/csv" multiple />
+
+          <button class="btn secondary" id="pickFolderBtn" type="button">Select folder</button>
+          <input id="folderInput" type="file" accept=".csv,text/csv" multiple webkitdirectory directory />
+
+          <button class="btn secondary" id="refreshBtn">Refresh now</button>
+          <button class="btn accent" id="exportBtn">Export filtered CSV</button>
+        </div>
+
+        <div class="toolbar-right status">
+          <span class="inline-controls">
+            <label class="checkbox"><input id="autoRefresh" type="checkbox" /> Auto refresh</label>
+            <label for="refreshInterval">sec</label>
+            <input id="refreshInterval" type="number" min="1" max="60" value="3" />
+          </span>
+          <span id="fileCount">No files loaded</span>
+          <span id="rowCount">0 rows</span>
+          <span id="filteredCount">0 shown</span>
+        </div>
+      </section>
+
+      <section class="panel section">
+        <div class="grid-cards">
+          <div class="card">
+            <div class="label">Rows</div>
+            <div class="value" id="cardRows">0</div>
+            <div class="sub" id="cardRowsSub">No data loaded</div>
+          </div>
+          <div class="card">
+            <div class="label">Boot Sessions</div>
+            <div class="value" id="cardBoots">0</div>
+            <div class="sub" id="cardBootsSub">Unique bootId count</div>
+          </div>
+          <div class="card">
+            <div class="label">UTC Range</div>
+            <div class="value" id="cardRange">—</div>
+            <div class="sub" id="cardRangeSub">Visible UTC span</div>
+          </div>
+          <div class="card">
+            <div class="label">Warnings + Errors</div>
+            <div class="value" id="cardProblems">0</div>
+            <div class="sub" id="cardProblemsSub">Type 2 + 3 events</div>
+          </div>
+          <div class="card">
+            <div class="label">CRC Failures</div>
+            <div class="value" id="cardMismatch">0</div>
+            <div class="sub" id="cardMismatchSub">Rows failing record CRC</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="row">
+        <section class="panel chart-panel">
+          <div class="chart-title">
+            <h3>Timeline</h3>
+            <div class="muted">wheel = zoom, drag = pan, double-click = reset</div>
+          </div>
+          <svg id="timelineChart" viewBox="0 0 900 240" preserveAspectRatio="none"></svg>
+          <div class="legend">
+            <span class="chip"><span class="dot" style="background:#8f9bb3"></span>Debug</span>
+            <span class="chip"><span class="dot" style="background:#79c0ff"></span>Info</span>
+            <span class="chip"><span class="dot" style="background:#ffd166"></span>Warning</span>
+            <span class="chip"><span class="dot" style="background:#ff6b6b"></span>Error</span>
+          </div>
+        </section>
+
+      </div>
+
+      <div class="split">
+        <section class="panel section">
+          <h3 style="margin-bottom:12px;">Entries</h3>
+          <div class="table-wrap">
+            <table id="eventsTable">
+              <thead>
+                <tr>
+                  <th data-sort="bootId">bootId</th>
+                  <th data-sort="recordId">recordId</th>
+                  <th data-sort="utcMillis">utc</th>
+                  <th data-sort="type">severity</th>
+                  <th data-sort="tag">tag</th>
+                  <th data-sort="instance">instance</th>
+                  <th data-sort="code">code</th>
+                  <th data-sort="value">value</th>
+                  <th data-sort="timestampMillis">timestampMillis</th>
+                  <th data-sort="timestampOverflows">timestampOverflows</th>
+                  <th data-sort="crc">crc</th>
+                  <th data-sort="crcValid">crcValid</th>
+                  <th data-sort="sourceFile">sourceFile</th>
+                </tr>
+              </thead>
+              <tbody id="eventsTbody"></tbody>
+            </table>
+          </div>
+          <div class="footer-note">
+            Sorted by bootId ascending, then recordId ascending by default.
+          </div>
+        </section>
+
+        <section class="panel detail">
+          <h3 style="margin-bottom:12px;">Selected Row</h3>
+          <pre id="detailPane">Click a row to inspect event details.</pre>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div class="tooltip hidden" id="timelineTooltip"></div>
+
+  <script>
+    const state = {
+      files: [],
+      fileEntries: [],
+      rows: [],
+      filtered: [],
+      selectedRow: null,
+      sortKey: 'recordId',
+      sortDir: 'desc',
+      defaultSorted: true,
+      timelineViewport: null,
+      timelineDragging: false,
+      timelineDragStartX: 0,
+      timelineDragRangeStart: 0,
+      timelineDragRangeEnd: 0,
+      timelineHideTooltipTimer: null,
+      refreshTimer: null,
+      refreshInFlight: false,
+    };
+
+    const TYPE_LABELS = {
+      0: 'Debug',
+      1: 'Info',
+      2: 'Warning',
+      3: 'Error'
+    };
+
+    const TYPE_COLORS = {
+      0: '#8f9bb3',
+      1: '#79c0ff',
+      2: '#ffd166',
+      3: '#ff6b6b'
+    };
+
+    const UINT32_SPAN = Math.pow(2, 32);
+
+    const els = {
+      fileInput: document.getElementById('fileInput'),
+      folderInput: document.getElementById('folderInput'),
+      pickFilesBtn: document.getElementById('pickFilesBtn'),
+      pickFolderBtn: document.getElementById('pickFolderBtn'),
+      dropzone: document.getElementById('dropzone'),
+      exportBtn: document.getElementById('exportBtn'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      clearDataBtn: document.getElementById('clearDataBtn'),
+      resetFiltersBtn: document.getElementById('resetFiltersBtn'),
+      autoRefresh: document.getElementById('autoRefresh'),
+      refreshInterval: document.getElementById('refreshInterval'),
+      searchText: document.getElementById('searchText'),
+      bootFilter: document.getElementById('bootFilter'),
+      tagFilter: document.getElementById('tagFilter'),
+      instanceFilter: document.getElementById('instanceFilter'),
+      codeFilter: document.getElementById('codeFilter'),
+      timeStart: document.getElementById('timeStart'),
+      timeEnd: document.getElementById('timeEnd'),
+      hideInvalidRows: document.getElementById('hideInvalidRows'),
+      onlyCrcMismatch: document.getElementById('onlyCrcMismatch'),
+      fileCount: document.getElementById('fileCount'),
+      rowCount: document.getElementById('rowCount'),
+      filteredCount: document.getElementById('filteredCount'),
+      cardRows: document.getElementById('cardRows'),
+      cardRowsSub: document.getElementById('cardRowsSub'),
+      cardBoots: document.getElementById('cardBoots'),
+      cardBootsSub: document.getElementById('cardBootsSub'),
+      cardRange: document.getElementById('cardRange'),
+      cardRangeSub: document.getElementById('cardRangeSub'),
+      cardProblems: document.getElementById('cardProblems'),
+      cardProblemsSub: document.getElementById('cardProblemsSub'),
+      cardMismatch: document.getElementById('cardMismatch'),
+      cardMismatchSub: document.getElementById('cardMismatchSub'),
+      timelineChart: document.getElementById('timelineChart'),
+      eventsTbody: document.getElementById('eventsTbody'),
+      detailPane: document.getElementById('detailPane'),
+      eventsTable: document.getElementById('eventsTable'),
+      timelineTooltip: document.getElementById('timelineTooltip'),
+    };
+
+    function severityClass(type){
+      if (type === 0) return 'debug';
+      if (type === 1) return 'info';
+      if (type === 2) return 'warning';
+      if (type == null) return 'debug';
+      return 'error';
+    }
+
+    function severityLabel(type){
+      return TYPE_LABELS[type] ?? `Type ${type}`;
+    }
+
+    function toSeverity(v){
+      if (v === '' || v == null) return null;
+      const normalized = String(v).trim().toLowerCase();
+      if (normalized === 'debug') return 0;
+      if (normalized === 'info') return 1;
+      if (normalized === 'warning' || normalized === 'warn') return 2;
+      if (normalized === 'error') return 3;
+      const numeric = Number(normalized);
+      return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    function parseCsv(text){
+      const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(Boolean);
+      if (!lines.length) return [];
+      const header = splitCsvLine(lines[0]).map(h => h.trim());
+      const rows = [];
+      for(let i=1;i<lines.length;i++){
+        const cols = splitCsvLine(lines[i]);
+        if (cols.length === 1 && cols[0].trim() === '') continue;
+        const obj = {};
+        header.forEach((key, idx) => obj[key] = (cols[idx] ?? '').trim());
+        rows.push(obj);
+      }
+      return rows;
+    }
+
+    function splitCsvLine(line){
+      const out = [];
+      let cur = '';
+      let inQuotes = false;
+      for(let i=0;i<line.length;i++){
+        const ch = line[i];
+        if (ch === '"'){
+          if (inQuotes && line[i+1] === '"'){
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === ',' && !inQuotes){
+          out.push(cur);
+          cur = '';
+        } else {
+          cur += ch;
+        }
+      }
+      out.push(cur);
+      return out;
+    }
+
+    function toNum(v){
+      if (v === '' || v == null) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function toUtcMillis(v){
+      if (v === '' || v == null) return null;
+      if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+      const text = String(v).trim();
+      if (!text) return null;
+      const numeric = Number(text);
+      if (Number.isFinite(numeric)) return numeric;
+      const parsed = Date.parse(text);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function getField(raw, ...keys){
+      for (const key of keys){
+        if (Object.prototype.hasOwnProperty.call(raw, key)) return raw[key];
+      }
+      return null;
+    }
+
+    function pushUint32LE(bytes, value){
+      bytes.push(value & 0xFF);
+      bytes.push((value >>> 8) & 0xFF);
+      bytes.push((value >>> 16) & 0xFF);
+      bytes.push((value >>> 24) & 0xFF);
+    }
+
+    function pushUint16LE(bytes, value){
+      bytes.push(value & 0xFF);
+      bytes.push((value >>> 8) & 0xFF);
+    }
+
+    function computeFletcher16(bytes){
+      let sum1 = 0;
+      let sum2 = 0;
+      for (const value of bytes){
+        sum1 = (sum1 + value) % 255;
+        sum2 = (sum2 + sum1) % 255;
+      }
+      return (sum2 << 8) | sum1;
+    }
+
+    function computeRecordCrc(row){
+      const fields = [
+        row.tag, row.instance, row.type, row.code, row.value,
+        row.recordId, row.bootId, row.timestampMillis, row.timestampOverflows
+      ];
+      if (fields.some(v => !Number.isFinite(v))) return null;
+
+      const bytes = [];
+      pushUint32LE(bytes, row.tag >>> 0);
+      bytes.push(row.instance & 0xFF);
+      bytes.push(row.type & 0xFF);
+      bytes.push(row.code & 0xFF);
+      bytes.push(row.value & 0xFF);
+      pushUint32LE(bytes, row.recordId >>> 0);
+      pushUint32LE(bytes, row.bootId >>> 0);
+      pushUint32LE(bytes, row.timestampMillis >>> 0);
+      pushUint16LE(bytes, row.timestampOverflows & 0xFFFF);
+      return computeFletcher16(bytes);
+    }
+
+    function parseRow(raw, sourceFile){
+      const id = toNum(getField(raw, 'id', 'Id'));
+      const bootId = toNum(getField(raw, 'bootId', 'BootId'));
+      const recordId = toNum(getField(raw, 'recordId', 'RecordId'));
+      const timestampMillis = toNum(getField(raw, 'timestampMillis', 'TimestampMillis'));
+      const timestampOverflows = toNum(getField(raw, 'timestampOverflows', 'TimestampOverflows', 'overflows', 'Overflows'));
+      const crc = toNum(getField(raw, 'crc', 'Crc'));
+      const tag = toNum(getField(raw, 'tag', 'Tag'));
+      const instance = toNum(getField(raw, 'instance', 'Instance'));
+      const code = toNum(getField(raw, 'code', 'Code'));
+      const value = toNum(getField(raw, 'value', 'Value'));
+      const type = toSeverity(getField(raw, 'type', 'Type'));
+      const explicitFullUptime = toNum(getField(raw, 'fullUptime', 'FullUptime', 'recordUptime', 'RecordUptime', 'uptimeMillis', 'UptimeMillis'));
+      const dumpUtc = toUtcMillis(getField(raw, 'dumpUtc', 'DumpUtc', 'syncUtc', 'SyncUtc'));
+      const dumpUptime = toNum(getField(raw, 'dumpUptime', 'DumpUptime', 'syncUptime', 'SyncUptime'));
+      const explicitUtcMillis = toUtcMillis(getField(raw,
+        'utcMillis', 'UtcMillis',
+        'utcTimestamp', 'UtcTimestamp',
+        'timestampUtc', 'TimestampUtc',
+        'eventUtc', 'EventUtc',
+        'utc', 'Utc'
+      ));
+
+      const fullUptime = explicitFullUptime ?? ((timestampMillis != null && timestampOverflows != null)
+        ? (timestampOverflows * UINT32_SPAN) + timestampMillis
+        : null);
+      const utcMillis = explicitUtcMillis ?? ((dumpUtc != null && dumpUptime != null && fullUptime != null)
+        ? dumpUtc - dumpUptime + fullUptime
+        : null);
+      const computedCrc = computeRecordCrc({
+        tag, instance, type, code, value,
+        recordId, bootId, timestampMillis, timestampOverflows
+      });
+      const crcValid = (crc != null && computedCrc != null) ? crc === computedCrc : null;
+      const rowValid = (Number.isFinite(fullUptime) || Number.isFinite(utcMillis)) && (crc == null || crcValid !== false);
+
+      return {
+        id, bootId, recordId,
+        timestampMillis, timestampOverflows, crc,
+        tag, instance, code, value, type,
+        fullUptime, utcMillis, dumpUtc, dumpUptime, computedCrc, crcValid,
+        sourceFile,
+        rowValid,
+        raw
+      };
+    }
+
+    async function collectDirectoryEntries(directoryHandle, prefix = ''){
+      const entries = [];
+      for await (const [name, handle] of directoryHandle.entries()) {
+        const path = prefix ? `${prefix}/${name}` : name;
+        if (handle.kind === 'file') {
+          if (name.toLowerCase().endsWith('.csv')) {
+            entries.push({
+              path,
+              live: true,
+              getFile: () => handle.getFile()
+            });
+          }
+        } else if (handle.kind === 'directory') {
+          entries.push(...await collectDirectoryEntries(handle, path));
+        }
+      }
+      return entries;
+    }
+
+    async function pickFilesReadOnly(){
+      if (typeof window.showOpenFilePicker !== 'function') {
+        els.fileInput.click();
+        return;
+      }
+
+      try {
+        const handles = await window.showOpenFilePicker({
+          multiple: true,
+          types: [{
+            description: 'CSV files',
+            accept: {
+              'text/csv': ['.csv']
+            }
+          }]
+        });
+
+        if (!handles.length) {
+          return;
+        }
+
+        state.defaultSorted = true;
+        state.sortKey = 'recordId';
+        state.sortDir = 'asc';
+        loadFileEntries(handles.map(handle => ({
+          path: handle.name,
+          live: true,
+          getFile: () => handle.getFile()
+        })), { resetTimelineViewport: true });
+      } catch (error) {
+        if (error?.name !== 'AbortError') {
+          alert('Failed to open one or more files: ' + error.message);
+        }
+      }
+    }
+
+    async function pickFolderReadOnly(){
+      if (typeof window.showDirectoryPicker !== 'function') {
+        els.folderInput.click();
+        return;
+      }
+
+      try {
+        const directoryHandle = await window.showDirectoryPicker();
+        const entries = await collectDirectoryEntries(directoryHandle);
+
+        if (!entries.length) {
+          alert('No CSV files were found in the selected folder.');
+          return;
+        }
+
+        state.defaultSorted = true;
+        state.sortKey = 'recordId';
+        state.sortDir = 'asc';
+        loadFileEntries(entries, { resetTimelineViewport: true });
+      } catch (error) {
+        if (error?.name !== 'AbortError') {
+          alert('Failed to open the selected folder: ' + error.message);
+        }
+      }
+    }
+
+    function loadFileEntries(fileEntries, options = {}){
+      if (!fileEntries.length || state.refreshInFlight) return;
+      state.refreshInFlight = true;
+      const reads = fileEntries.map(entry => entry.getFile().then(file => file.text()).then(text => ({ entry, text })));
+      Promise.all(reads).then(results => {
+        const newRows = [];
+        for (const { entry, text } of results) {
+          const parsed = parseCsv(text);
+          for (const raw of parsed) {
+            newRows.push(parseRow(raw, entry.path));
+          }
+        }
+
+        state.fileEntries = fileEntries;
+        state.files = fileEntries.map(entry => entry.path);
+        state.rows = newRows;
+        if (options.resetTimelineViewport) {
+          state.timelineViewport = null;
+        }
+        els.autoRefresh.checked = fileEntries.every(entry => entry.live);
+        updateRefreshTimer();
+
+        state.rows.sort((a,b) => {
+                  const boot = cmpNum(b.bootId, a.bootId);
+                    if (boot !== 0) return boot;
+                    return cmpNum(b.recordId, a.recordId);
+        });
+
+        if (state.selectedRow) {
+          state.selectedRow = state.rows.find(r => r.bootId === state.selectedRow.bootId && r.recordId === state.selectedRow.recordId) ?? null;
+        }
+
+        populateFilters();
+        applyFilters();
+      }).catch(err => {
+        alert('Failed to read one or more files: ' + err.message);
+      }).finally(() => {
+        state.refreshInFlight = false;
+      });
+    }
+
+    function readFiles(fileList){
+      const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.csv'));
+      if (!files.length) return;
+      const entries = files.map(file => ({
+        path: file.webkitRelativePath || file.name,
+        live: false,
+        getFile: async () => file
+      }));
+      state.defaultSorted = true;
+      state.sortKey = 'recordId';
+      state.sortDir = 'desc';
+      loadFileEntries(entries, { resetTimelineViewport: true });
+    }
+
+    function refreshFiles(){
+      if (!state.fileEntries.length) return;
+      if (!state.fileEntries.every(entry => entry.live)) {
+        alert('Live refresh requires selecting files or folders with the picker buttons so the viewer can reopen them in read-only mode.');
+        return;
+      }
+      loadFileEntries(state.fileEntries, { resetTimelineViewport: false });
+    }
+
+    function updateRefreshTimer(){
+      if (state.refreshTimer != null) {
+        clearInterval(state.refreshTimer);
+        state.refreshTimer = null;
+      }
+      if (!els.autoRefresh.checked || !state.fileEntries.length || !state.fileEntries.every(entry => entry.live)) return;
+      const seconds = Math.max(1, Math.min(60, toNum(els.refreshInterval.value) ?? 3));
+      els.refreshInterval.value = String(seconds);
+      state.refreshTimer = setInterval(refreshFiles, seconds * 1000);
+    }
+
+    function cmpNum(a,b){
+      if (a == null && b == null) return 0;
+      if (a == null) return 1;
+      if (b == null) return -1;
+      return a - b;
+    }
+
+    function uniqueSorted(values){
+      return Array.from(new Set(values.filter(v => v != null))).sort((a,b) => {
+        if (typeof a === 'number' && typeof b === 'number') return a - b;
+        return String(a).localeCompare(String(b));
+      });
+    }
+
+    function populateMultiSelect(select, values){
+      const prior = new Set(Array.from(select.selectedOptions).map(o => o.value));
+      select.innerHTML = '';
+      for (const value of values){
+        const opt = document.createElement('option');
+        opt.value = String(value);
+        opt.textContent = String(value);
+        if (prior.has(String(value))) opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.size = Math.min(Math.max(values.length, 1), 6);
+    }
+
+    function populateFilters(){
+      populateMultiSelect(els.bootFilter, uniqueSorted(state.rows.map(r => r.bootId)));
+      populateMultiSelect(els.tagFilter, uniqueSorted(state.rows.map(r => r.tag)));
+      populateMultiSelect(els.instanceFilter, uniqueSorted(state.rows.map(r => r.instance)));
+      populateMultiSelect(els.codeFilter, uniqueSorted(state.rows.map(r => r.code)));
+    }
+
+    function getSelectedSet(select){
+      const selected = Array.from(select.selectedOptions).map(o => o.value);
+      return selected.length ? new Set(selected) : null;
+    }
+
+    function activeTimeField(){
+      return 'utcMillis';
+    }
+
+    function applyFilters(){
+      const bootSet = getSelectedSet(els.bootFilter);
+      const tagSet = getSelectedSet(els.tagFilter);
+      const instanceSet = getSelectedSet(els.instanceFilter);
+      const codeSet = getSelectedSet(els.codeFilter);
+      const typeSet = new Set(Array.from(document.querySelectorAll('.typeToggle:checked')).map(el => el.value));
+      const search = els.searchText.value.trim().toLowerCase();
+      const hideInvalid = els.hideInvalidRows.checked;
+      const crcMismatchOnly = els.onlyCrcMismatch.checked;
+      const timeField = activeTimeField();
+
+      const startMs = toUtcMillis(els.timeStart.value);
+      const endMs = toUtcMillis(els.timeEnd.value);
+
+      let out = state.rows.filter(r => {
+        if (bootSet && !bootSet.has(String(r.bootId))) return false;
+        if (tagSet && !tagSet.has(String(r.tag))) return false;
+        if (instanceSet && !instanceSet.has(String(r.instance))) return false;
+        if (codeSet && !codeSet.has(String(r.code))) return false;
+        if (r.type != null && !typeSet.has(String(r.type))) return false;
+        if (hideInvalid && !r.rowValid && !crcMismatchOnly) return false;
+        if (crcMismatchOnly && r.crcValid !== false) return false;
+
+        const t = r[timeField];
+        if (startMs != null && (!Number.isFinite(t) || t < startMs)) return false;
+        if (endMs != null && (!Number.isFinite(t) || t > endMs)) return false;
+
+        if (search){
+          const hay = [
+            r.id, r.bootId, r.recordId, r.timestampMillis, r.timestampOverflows,
+            r.fullUptime, r.utcMillis, r.dumpUtc, r.dumpUptime, r.crc, r.computedCrc, r.crcValid, r.tag, r.instance,
+            r.code, r.value, r.type, severityLabel(r.type), r.sourceFile
+          ].join(' ').toLowerCase();
+          if (!hay.includes(search)) return false;
+        }
+        return true;
+      });
+
+      if (!state.defaultSorted) {
+        out.sort((a,b) => compareBySort(a,b,state.sortKey,state.sortDir));
+      }
+
+      state.filtered = out;
+      updateUi();
+    }
+
+    function compareBySort(a,b,key,dir){
+      let av = a[key], bv = b[key];
+      if (typeof av === 'string' || typeof bv === 'string'){
+        av = av == null ? '' : String(av);
+        bv = bv == null ? '' : String(bv);
+        return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      const result = cmpNum(av,bv);
+      return dir === 'asc' ? result : -result;
+    }
+
+    function updateUi(){
+      const rows = state.rows;
+      const filtered = state.filtered;
+      const timeField = activeTimeField();
+
+      els.fileCount.textContent = state.files.length
+        ? `${state.files.length} file${state.files.length===1?'':'s'} loaded`
+        : 'No files loaded';
+      els.rowCount.textContent = `${rows.length} rows`;
+      els.filteredCount.textContent = `${filtered.length} shown`;
+
+      els.cardRows.textContent = String(rows.length);
+      els.cardRowsSub.textContent = state.files.length
+        ? `${state.files.length} source file${state.files.length===1?'':'s'}`
+        : 'Load CSV files to begin';
+
+      const boots = new Set(rows.map(r => r.bootId).filter(v => v != null));
+      els.cardBoots.textContent = String(boots.size);
+      els.cardBootsSub.textContent = boots.size
+        ? `bootId: ${Array.from(boots).slice(0,6).join(', ')}${boots.size>6?'…':''}`
+        : 'No sessions loaded';
+
+      const times = filtered.map(r => r[timeField]).filter(Number.isFinite).sort((a,b)=>a-b);
+      if (times.length){
+        els.cardRange.textContent = formatSpan(times[0], times[times.length-1]);
+        els.cardRangeSub.textContent = `UTC from ${formatUtc(times[0], false)} to ${formatUtc(times[times.length-1], false)}`;
+      } else {
+        els.cardRange.textContent = '—';
+        els.cardRangeSub.textContent = 'No valid UTC values';
+      }
+
+      const problems = filtered.filter(r => r.type === 2 || r.type === 3).length;
+      els.cardProblems.textContent = String(problems);
+      els.cardProblemsSub.textContent = `${filtered.filter(r=>r.type===2).length} warnings, ${filtered.filter(r=>r.type===3).length} errors`;
+
+      const mismatches = rows.filter(r => r.crcValid === false).length;
+      els.cardMismatch.textContent = String(mismatches);
+      els.cardMismatchSub.textContent = `${mismatches} row${mismatches===1?'':'s'} failed CRC validation`;
+
+      renderTimeline(filtered, timeField);
+      renderTable(filtered, timeField);
+    }
+
+    function formatSpan(start, end){
+      const sec = Math.max(0, Math.round((end - start)/1000));
+      if (sec < 60) return `${sec}s`;
+      const min = Math.floor(sec/60);
+      const remSec = sec % 60;
+      if (min < 60) return `${min}m ${remSec}s`;
+      const hr = Math.floor(min/60);
+      const remMin = min % 60;
+      return `${hr}h ${remMin}m`;
+    }
+
+    function formatUptime(ms){
+      if (!Number.isFinite(ms)) return '—';
+      const totalMs = Math.max(0, Math.floor(ms));
+      const totalSec = Math.floor(totalMs / 1000);
+      const hours = Math.floor(totalSec / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+      const millis = totalMs % 1000;
+      return `${hours}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}.${String(millis).padStart(3,'0')}`;
+    }
+
+    function formatUtc(ms, includeMillis = true){
+      if (!Number.isFinite(ms)) return '—';
+      const date = new Date(ms);
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+      const millis = String(date.getUTCMilliseconds()).padStart(3, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}${includeMillis ? `.${millis}` : ''} UTC`;
+    }
+
+    function formatPrimaryTime(ms, timeField){
+      return timeField === 'utcMillis' ? formatUtc(ms) : formatUptime(ms);
+    }
+
+    function escapeXml(s){
+      return String(s)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+    }
+
+    function showTimelineTooltip(event, stack){
+      if (!stack?.rows?.length || state.timelineDragging) return;
+      cancelHideTimelineTooltip();
+      const tooltip = els.timelineTooltip;
+      const severityCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      stack.rows.forEach(row => {
+        if (severityCounts[row.type] != null) severityCounts[row.type]++;
+      });
+
+      const stackStart = stack.rows[0]?.utcMillis;
+      const stackEnd = stack.rows[stack.rows.length - 1]?.utcMillis;
+      const stackTitle = stack.rows.length > 1 && Number.isFinite(stackStart) && Number.isFinite(stackEnd)
+        ? `${formatUtc(stackStart, false)} - ${formatUtc(stackEnd, false)}`
+        : formatUtc(stackStart, false);
+
+      tooltip.innerHTML = `
+        <div class="tooltip-title">${escapeXml(stackTitle)} - ${stack.rows.length} event${stack.rows.length === 1 ? '' : 's'}</div>
+        <div class="muted" style="margin-bottom:8px;">${severityCounts[0]} debug, ${severityCounts[1]} info, ${severityCounts[2]} warning, ${severityCounts[3]} error</div>
+        <div class="tooltip-list">
+          ${stack.rows.map(row => `
+            <div class="tooltip-item">
+              <div><strong>${escapeXml(severityLabel(row.type))}</strong> · UTC ${escapeXml(formatUtc(row.utcMillis))}</div>
+              <div class="muted">uptime=${escapeXml(formatUptime(row.fullUptime))}</div>
+              <div class="muted">bootId=${escapeXml(row.bootId)} recordId=${escapeXml(row.recordId)} tag=${escapeXml(row.tag)} instance=${escapeXml(row.instance)} code=${escapeXml(row.code)} value=${escapeXml(row.value)}</div>
+            </div>`).join('')}
+        </div>`;
+
+      const offset = 14;
+      const maxLeft = window.innerWidth - tooltip.offsetWidth - 12;
+      const maxTop = window.innerHeight - tooltip.offsetHeight - 12;
+      tooltip.style.left = `${Math.max(12, Math.min(event.clientX + offset, maxLeft))}px`;
+      tooltip.style.top = `${Math.max(12, Math.min(event.clientY + offset, maxTop))}px`;
+      tooltip.classList.remove('hidden');
+    }
+
+    function cancelHideTimelineTooltip(){
+      if (state.timelineHideTooltipTimer != null) {
+        clearTimeout(state.timelineHideTooltipTimer);
+        state.timelineHideTooltipTimer = null;
+      }
+    }
+
+    function scheduleHideTimelineTooltip(){
+      cancelHideTimelineTooltip();
+      state.timelineHideTooltipTimer = setTimeout(() => {
+        hideTimelineTooltip();
+      }, 120);
+    }
+
+    function hideTimelineTooltip(){
+      cancelHideTimelineTooltip();
+      els.timelineTooltip.classList.add('hidden');
+    }
+
+    function getTimelineDomain(rows, timeField){
+      const validTimes = rows.map(r => r[timeField]).filter(Number.isFinite);
+      if (!validTimes.length) return null;
+      return {
+        min: Math.min(...validTimes),
+        max: Math.max(...validTimes)
+      };
+    }
+
+    function clampTimelineViewport(domain){
+      if (!domain) {
+        state.timelineViewport = null;
+        return null;
+      }
+
+      const domainSpan = Math.max(1, domain.max - domain.min);
+      const minSpan = Math.min(domainSpan, 1000);
+
+      if (!state.timelineViewport) {
+        state.timelineViewport = { start: domain.min, end: domain.max };
+        return state.timelineViewport;
+      }
+
+      let start = state.timelineViewport.start;
+      let end = state.timelineViewport.end;
+      let span = Math.max(minSpan, end - start);
+
+      if (span >= domainSpan) {
+        state.timelineViewport = { start: domain.min, end: domain.max };
+        return state.timelineViewport;
+      }
+
+      if (start < domain.min) {
+        start = domain.min;
+        end = start + span;
+      }
+      if (end > domain.max) {
+        end = domain.max;
+        start = end - span;
+      }
+
+      state.timelineViewport = { start, end };
+      return state.timelineViewport;
+    }
+
+    function resetTimelineViewport(){
+      state.timelineViewport = null;
+      hideTimelineTooltip();
+      renderTimeline(state.filtered, activeTimeField());
+    }
+
+    function zoomTimeline(event){
+      const domain = getTimelineDomain(state.filtered, activeTimeField());
+      if (!domain) return;
+
+      const current = clampTimelineViewport(domain);
+      const rect = els.timelineChart.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(rect.width, 1)));
+      const span = Math.max(1, current.end - current.start);
+      const domainSpan = Math.max(1, domain.max - domain.min);
+      const minSpan = Math.min(domainSpan, 1000);
+      const zoomFactor = event.deltaY < 0 ? 0.75 : 1.35;
+      let nextSpan = Math.max(minSpan, Math.min(domainSpan, span * zoomFactor));
+
+      if (nextSpan >= domainSpan) {
+        state.timelineViewport = { start: domain.min, end: domain.max };
+      } else {
+        const focus = current.start + (ratio * span);
+        let nextStart = focus - (ratio * nextSpan);
+        let nextEnd = nextStart + nextSpan;
+
+        if (nextStart < domain.min) {
+          nextStart = domain.min;
+          nextEnd = nextStart + nextSpan;
+        }
+        if (nextEnd > domain.max) {
+          nextEnd = domain.max;
+          nextStart = nextEnd - nextSpan;
+        }
+
+        state.timelineViewport = { start: nextStart, end: nextEnd };
+      }
+
+      hideTimelineTooltip();
+      renderTimeline(state.filtered, activeTimeField());
+    }
+
+    function beginTimelinePan(event){
+      const domain = getTimelineDomain(state.filtered, activeTimeField());
+      if (!domain) return;
+
+      if (typeof window.getSelection === 'function') {
+        window.getSelection()?.removeAllRanges();
+      }
+      event.preventDefault();
+
+      const current = clampTimelineViewport(domain);
+      state.timelineDragging = true;
+      state.timelineDragStartX = event.clientX;
+      state.timelineDragRangeStart = current.start;
+      state.timelineDragRangeEnd = current.end;
+      els.timelineChart.classList.add('dragging');
+      hideTimelineTooltip();
+      if (typeof els.timelineChart.setPointerCapture === 'function') {
+        els.timelineChart.setPointerCapture(event.pointerId);
+      }
+    }
+
+    function moveTimelinePan(event){
+      if (!state.timelineDragging) return;
+
+      const domain = getTimelineDomain(state.filtered, activeTimeField());
+      if (!domain) return;
+
+      const rect = els.timelineChart.getBoundingClientRect();
+      const span = Math.max(1, state.timelineDragRangeEnd - state.timelineDragRangeStart);
+      const deltaRatio = (event.clientX - state.timelineDragStartX) / Math.max(rect.width, 1);
+      const deltaMs = deltaRatio * span;
+      let nextStart = state.timelineDragRangeStart - deltaMs;
+      let nextEnd = state.timelineDragRangeEnd - deltaMs;
+
+      if (nextStart < domain.min) {
+        nextStart = domain.min;
+        nextEnd = nextStart + span;
+      }
+      if (nextEnd > domain.max) {
+        nextEnd = domain.max;
+        nextStart = nextEnd - span;
+      }
+
+      state.timelineViewport = { start: nextStart, end: nextEnd };
+      renderTimeline(state.filtered, activeTimeField());
+    }
+
+    function endTimelinePan(event){
+      if (!state.timelineDragging) return;
+      state.timelineDragging = false;
+      els.timelineChart.classList.remove('dragging');
+      if (event && typeof els.timelineChart.releasePointerCapture === 'function') {
+        try { els.timelineChart.releasePointerCapture(event.pointerId); } catch {}
+      }
+    }
+
+    function renderTimeline(rows, timeField){
+      const svg = els.timelineChart;
+      const W = 900, H = 240;
+      const pad = {l:52, r:18, t:18, b:34};
+      let content = `<rect x="0" y="0" width="${W}" height="${H}" fill="#0c1330"/>`;
+
+      const valid = rows.filter(r => Number.isFinite(r[timeField]));
+      if (!valid.length){
+        svg.innerHTML = content + emptyChartText(W,H,'No valid UTC rows to plot');
+        return;
+      }
+
+      const domain = getTimelineDomain(valid, timeField);
+      const viewport = clampTimelineViewport(domain);
+      const viewStart = viewport.start;
+      const viewEnd = viewport.end;
+
+      const spanMs = Math.max(1, viewEnd - viewStart);
+      const plotW = W - pad.l - pad.r;
+      const minStackGapPx = 10;
+      const visibleRows = valid
+        .filter(row => row[timeField] >= viewStart && row[timeField] <= viewEnd)
+        .sort((a,b) => {
+          const time = cmpNum(a[timeField], b[timeField]);
+          if (time !== 0) return time;
+          return cmpNum(a.recordId, b.recordId);
+        });
+
+      if (!visibleRows.length){
+        svg.innerHTML = content + emptyChartText(W,H,'No events in the current zoom window');
+        return;
+      }
+
+      const stacks = [];
+      visibleRows.forEach(row => {
+        const x = pad.l + (((row[timeField] - viewStart) / spanMs) * plotW);
+        const prior = stacks[stacks.length - 1];
+        if (!prior || Math.abs(x - prior.lastX) >= minStackGapPx) {
+          stacks.push({
+            x,
+            lastX: x,
+            rows: [row]
+          });
+          return;
+        }
+
+        prior.rows.push(row);
+        prior.lastX = x;
+        prior.x = prior.rows.reduce((sum, stackRow) => {
+          const stackX = pad.l + (((stackRow[timeField] - viewStart) / spanMs) * plotW);
+          return sum + stackX;
+        }, 0) / prior.rows.length;
+      });
+
+      const maxStackHeight = Math.max(...stacks.map(stack => stack.rows.length), 1);
+      const plotH = H - pad.t - pad.b;
+      const baselineY = pad.t + plotH;
+      const stackStep = Math.max(6, Math.min(12, (plotH - 10) / Math.max(maxStackHeight, 2)));
+
+      content += buildUtcAxisTicks(viewStart, viewEnd, W, H, pad);
+      content += `<line x1="${pad.l}" y1="${baselineY}" x2="${pad.l + plotW}" y2="${baselineY}" stroke="rgba(255,255,255,.25)" />`;
+
+      const hitWidth = Math.max(18, Math.min(48, plotW / Math.max(stacks.length, 12)));
+
+      stacks.forEach((stack, stackIndex) => {
+        const x = stack.x;
+        stack.rows.forEach((row, rowIndex) => {
+          const y = baselineY - (rowIndex * stackStep);
+          const color = TYPE_COLORS[row.type] || '#ffffff';
+          content += `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.25" fill="${color}" />`;
+        });
+        if (stack.rows.length > 1) {
+          const labelY = baselineY - ((stack.rows.length - 1) * stackStep) - 7;
+          content += `<text x="${x.toFixed(2)}" y="${labelY.toFixed(2)}" text-anchor="middle" fill="#dfe7ff" font-size="9" font-weight="700">${stack.rows.length}</text>`;
+        }
+        content += `<rect x="${(x - (hitWidth / 2)).toFixed(2)}" y="${pad.t}" width="${hitWidth.toFixed(2)}" height="${plotH}" fill="transparent" data-stack-index="${stackIndex}" />`;
+      });
+
+      svg.innerHTML = content;
+
+      svg.querySelectorAll('[data-stack-index]').forEach(hitbox => {
+        const stack = stacks[Number(hitbox.dataset.stackIndex)];
+        hitbox.addEventListener('mousemove', event => showTimelineTooltip(event, stack));
+        hitbox.addEventListener('mouseleave', scheduleHideTimelineTooltip);
+      });
+    }
+
+    function emptyChartText(W,H,text){
+      return `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#9fb0e8" font-size="16">${escapeXml(text)}</text>`;
+    }
+
+    function gridLines(W,H,pad,vCount,hCount){
+      let s = '';
+      const plotW = W - pad.l - pad.r;
+      const plotH = H - pad.t - pad.b;
+      for(let i=0;i<=vCount;i++){
+        const x = pad.l + (i/vCount)*plotW;
+        s += `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${pad.t + plotH}" stroke="rgba(255,255,255,.08)" />`;
+      }
+      for(let i=0;i<=hCount;i++){
+        const y = pad.t + (i/hCount)*plotH;
+        s += `<line x1="${pad.l}" y1="${y}" x2="${pad.l + plotW}" y2="${y}" stroke="rgba(255,255,255,.08)" />`;
+      }
+      s += `<line x1="${pad.l}" y1="${pad.t + plotH}" x2="${pad.l + plotW}" y2="${pad.t + plotH}" stroke="rgba(255,255,255,.25)" />`;
+      s += `<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t + plotH}" stroke="rgba(255,255,255,.25)" />`;
+      return s;
+    }
+
+    function getUtcTickInterval(spanMs, plotWidth){
+      const targetTicks = Math.max(2, Math.floor(plotWidth / 110));
+      const minStep = Math.max(1000, spanMs / targetTicks);
+      const intervals = [
+        1000, 2000, 5000, 10000, 15000, 30000,
+        60000, 120000, 300000, 600000, 900000, 1800000,
+        3600000, 7200000, 21600000, 43200000, 86400000, 172800000, 604800000
+      ];
+      return intervals.find(interval => interval >= minStep) ?? intervals[intervals.length - 1];
+    }
+
+    function formatUtcTickLines(ms, interval){
+      const date = new Date(ms);
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+      const isoDate = `${year}-${month}-${day}`;
+
+      if (interval < 60000) return [`${hours}:${minutes}:${seconds}`, isoDate];
+      if (interval < 86400000) return [`${hours}:${minutes}`, isoDate];
+      return [isoDate];
+    }
+
+    function buildUtcAxisTicks(minT,maxT,W,H,pad){
+      const plotW = W - pad.l - pad.r;
+      const plotH = H - pad.t - pad.b;
+      const spanMs = Math.max(1, maxT - minT);
+      const interval = getUtcTickInterval(spanMs, plotW);
+      const firstTick = Math.ceil(minT / interval) * interval;
+      let content = '';
+
+      for (let tick = firstTick; tick <= maxT; tick += interval){
+        const x = pad.l + (((tick - minT) / spanMs) * plotW);
+        const lines = formatUtcTickLines(tick, interval);
+        content += `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${pad.t + plotH}" stroke="rgba(255,255,255,.08)" />`;
+        content += `<text x="${x}" y="${H - 18}" text-anchor="middle" fill="#b9c6f2" font-size="11">`;
+        lines.forEach((line, index) => {
+          content += `<tspan x="${x}" dy="${index === 0 ? 0 : 12}">${escapeXml(line)}</tspan>`;
+        });
+        content += `</text>`;
+      }
+
+      return content;
+    }
+
+    function renderTable(rows, timeField){
+      const tbody = els.eventsTbody;
+      tbody.innerHTML = '';
+
+      const frag = document.createDocumentFragment();
+
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono">${safe(r.bootId)}</td>
+          <td class="mono">${safe(r.recordId)}</td>
+          <td class="mono">${safe(formatPrimaryTime(r[timeField], timeField))}</td>
+          <td><span class="sev ${severityClass(r.type)}">${safe(severityLabel(r.type))}</span></td>
+          <td class="mono">${safe(r.tag)}</td>
+          <td class="mono">${safe(r.instance)}</td>
+          <td class="mono">${safe(r.code)}</td>
+          <td class="mono">${safe(r.value)}</td>
+          <td class="mono">${safe(r.timestampMillis)}</td>
+          <td class="mono">${safe(r.timestampOverflows)}</td>
+          <td class="mono">${safe(r.crc ?? r.computedCrc)}</td>
+          <td class="mono">${safe(r.crcValid == null ? '—' : (r.crcValid ? 'OK' : 'FAIL'))}</td>
+          <td>${safe(r.sourceFile)}</td>
+        `;
+        tr.addEventListener('click', () => {
+          state.selectedRow = r;
+          renderDetail(r, timeField);
+        });
+        frag.appendChild(tr);
+      });
+
+      tbody.appendChild(frag);
+
+      if (!rows.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="13" class="muted">No rows match current filters.</td>`;
+        tbody.appendChild(tr);
+      }
+
+      if (state.selectedRow) renderDetail(state.selectedRow, timeField);
+    }
+
+    function renderDetail(r, timeField){
+      if (!r){
+        els.detailPane.textContent = 'Click a row to inspect event details.';
+        return;
+      }
+      const detail = {
+        sourceFile: r.sourceFile,
+        id: r.id,
+        bootId: r.bootId,
+        recordId: r.recordId,
+        tag: r.tag,
+        instance: r.instance,
+        code: r.code,
+        value: r.value,
+        type: r.type,
+        severityLabel: severityLabel(r.type),
+        primaryTimeField: timeField,
+        primaryTimestamp: r[timeField],
+        primaryTimestampFormatted: formatPrimaryTime(r[timeField], timeField),
+        timestampMillis: r.timestampMillis,
+        timestampOverflows: r.timestampOverflows,
+        fullUptime: r.fullUptime,
+        fullUptimeFormatted: formatUptime(r.fullUptime),
+        utcMillis: r.utcMillis,
+        utcFormatted: formatUtc(r.utcMillis),
+        dumpUtc: r.dumpUtc,
+        dumpUtcFormatted: formatUtc(r.dumpUtc),
+        dumpUptime: r.dumpUptime,
+        crc: r.crc,
+        computedCrc: r.computedCrc,
+        crcValid: r.crcValid,
+        rowValid: r.rowValid,
+        raw: r.raw
+      };
+      els.detailPane.textContent = JSON.stringify(detail, null, 2);
+    }
+
+    function safe(v){
+      return v == null ? '—' : String(v);
+    }
+
+    function exportFilteredCsv(){
+      if (!state.filtered.length){
+        alert('No filtered rows to export.');
+        return;
+      }
+      const header = [
+        'id','bootId','recordId','timestampMillis','timestampOverflows','fullUptime','utcMillis','dumpUtc','dumpUptime',
+        'tag','instance','code','value','type','crc','computedCrc','crcValid','sourceFile'
+      ];
+      const lines = [header.join(',')];
+      for (const r of state.filtered){
+        const vals = header.map(k => csvEscape(r[k]));
+        lines.push(vals.join(','));
+      }
+      const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `filtered_drone_logs_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function csvEscape(v){
+      if (v == null) return '';
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    }
+
+    function resetFilters(){
+      els.searchText.value = '';
+      [els.bootFilter, els.tagFilter, els.instanceFilter, els.codeFilter].forEach(sel => {
+        Array.from(sel.options).forEach(o => o.selected = false);
+      });
+      document.querySelectorAll('.typeToggle').forEach(el => el.checked = true);
+      els.timeStart.value = '';
+      els.timeEnd.value = '';
+      els.hideInvalidRows.checked = false;
+      els.onlyCrcMismatch.checked = false;
+      state.defaultSorted = true;
+      state.sortKey = 'recordId';
+      state.sortDir = 'desc';
+      applyFilters();
+    }
+
+    function clearData(){
+      state.files = [];
+      state.fileEntries = [];
+      state.rows = [];
+      state.filtered = [];
+      state.selectedRow = null;
+      state.defaultSorted = true;
+      state.sortKey = 'recordId';
+      state.sortDir = 'desc';
+
+      updateRefreshTimer();
+      [els.bootFilter, els.tagFilter, els.instanceFilter, els.codeFilter].forEach(sel => sel.innerHTML = '');
+      els.eventsTbody.innerHTML = '';
+      els.detailPane.textContent = 'Click a row to inspect event details.';
+      updateUi();
+    }
+
+    function hookEvents(){
+      els.pickFilesBtn.addEventListener('click', pickFilesReadOnly);
+      els.pickFolderBtn.addEventListener('click', pickFolderReadOnly);
+      els.fileInput.addEventListener('change', e => readFiles(e.target.files));
+      els.folderInput.addEventListener('change', e => readFiles(e.target.files));
+      els.refreshBtn.addEventListener('click', refreshFiles);
+      els.exportBtn.addEventListener('click', exportFilteredCsv);
+      els.clearDataBtn.addEventListener('click', clearData);
+      els.resetFiltersBtn.addEventListener('click', resetFilters);
+      els.autoRefresh.addEventListener('change', updateRefreshTimer);
+      els.refreshInterval.addEventListener('input', updateRefreshTimer);
+
+      [
+        els.searchText, els.bootFilter, els.tagFilter, els.instanceFilter, els.codeFilter,
+        els.timeStart, els.timeEnd, els.hideInvalidRows, els.onlyCrcMismatch
+      ].forEach(el => el.addEventListener('input', applyFilters));
+      document.querySelectorAll('.typeToggle').forEach(el => el.addEventListener('change', applyFilters));
+
+      els.dropzone.addEventListener('dragover', e => {
+        e.preventDefault();
+        els.dropzone.classList.add('drag');
+      });
+      els.dropzone.addEventListener('dragleave', () => els.dropzone.classList.remove('drag'));
+      els.dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        els.dropzone.classList.remove('drag');
+        if (e.dataTransfer.files?.length) readFiles(e.dataTransfer.files);
+      });
+
+      els.timelineChart.addEventListener('wheel', e => {
+        e.preventDefault();
+        zoomTimeline(e);
+      }, { passive: false });
+      els.timelineChart.addEventListener('dblclick', resetTimelineViewport);
+      els.timelineChart.addEventListener('pointerdown', beginTimelinePan);
+      els.timelineChart.addEventListener('pointermove', moveTimelinePan);
+      els.timelineChart.addEventListener('pointerup', endTimelinePan);
+      els.timelineChart.addEventListener('pointercancel', endTimelinePan);
+      els.timelineTooltip.addEventListener('mouseenter', cancelHideTimelineTooltip);
+      els.timelineTooltip.addEventListener('mouseleave', scheduleHideTimelineTooltip);
+
+      els.eventsTable.querySelectorAll('th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => {
+          const key = th.dataset.sort;
+          if (state.sortKey === key){
+            state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            state.sortKey = key;
+            state.sortDir = 'asc';
+          }
+          state.defaultSorted = false;
+          state.filtered.sort((a,b) => compareBySort(a,b,state.sortKey,state.sortDir));
+          updateUi();
+        });
+      });
+    }
+
+    function initializeWithSampleHint(){
+      updateUi();
+      els.timeStart.placeholder = '2026-01-31T12:34:56Z';
+      els.timeEnd.placeholder = '2026-01-31T12:35:56Z';
+    }
+
+    hookEvents();
+    initializeWithSampleHint();
+  </script>
+</body>
+</html>
