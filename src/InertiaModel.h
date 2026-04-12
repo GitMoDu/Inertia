@@ -39,10 +39,6 @@
 #include "Components/Ahrs/Reefwing/Model.h"
 #include "Components/Ahrs/Reefwing/TemplateDriver.h"
 
-// Hardware interface models.
-#include "Drivers/I2c/Model.h" 
-#include "Drivers/Spi/Model.h" 
-#include "Drivers/Serial/Model.h" 
 
 
 #endif

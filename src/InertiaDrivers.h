@@ -3,7 +3,13 @@
 
 #include "InertiaModel.h"
 
+// Hardware interface models.
+#include "Drivers/Spi/Model.h" 
+#include "Drivers/Serial/Model.h"
+
+
 // I2C interface.
+#include "Drivers/I2c/Model.h" 
 #include "Drivers/I2c/I2cInterface.h" 
 
 // VG6328A UART module.
