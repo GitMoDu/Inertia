@@ -601,6 +601,7 @@
     const state = {
       files: [],
       fileEntries: [],
+      directoryHandle: null,
       rows: [],
       filtered: [],
       selectedRow: null,
@@ -868,6 +869,11 @@
       return entries;
     }
 
+    function canLiveRefresh(){
+      if (state.directoryHandle != null) return true;
+      return state.fileEntries.length > 0 && state.fileEntries.every(entry => entry.live);
+    }
+
     async function pickFilesReadOnly(){
       if (typeof window.showOpenFilePicker !== 'function') {
         els.fileInput.click();
@@ -889,6 +895,7 @@
           return;
         }
 
+        state.directoryHandle = null;
         state.defaultSorted = true;
         state.sortKey = 'recordId';
         state.sortDir = 'asc';
@@ -914,11 +921,7 @@
         const directoryHandle = await window.showDirectoryPicker();
         const entries = await collectDirectoryEntries(directoryHandle);
 
-        if (!entries.length) {
-          alert('No CSV files were found in the selected folder.');
-          return;
-        }
-
+        state.directoryHandle = directoryHandle;
         state.defaultSorted = true;
         state.sortKey = 'recordId';
         state.sortDir = 'asc';
@@ -931,7 +934,7 @@
     }
 
     function loadFileEntries(fileEntries, options = {}){
-      if (!fileEntries.length || state.refreshInFlight) return;
+      if (state.refreshInFlight) return;
       state.refreshInFlight = true;
       const reads = fileEntries.map(entry => entry.getFile().then(file => file.text()).then(text => ({ entry, text })));
       Promise.all(reads).then(results => {
@@ -949,7 +952,7 @@
         if (options.resetTimelineViewport) {
           state.timelineViewport = null;
         }
-        els.autoRefresh.checked = fileEntries.every(entry => entry.live);
+        els.autoRefresh.checked = canLiveRefresh();
         updateRefreshTimer();
 
         state.rows.sort((a,b) => {
@@ -974,6 +977,7 @@
     function readFiles(fileList){
       const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.csv'));
       if (!files.length) return;
+      state.directoryHandle = null;
       const entries = files.map(file => ({
         path: file.webkitRelativePath || file.name,
         live: false,
@@ -985,7 +989,17 @@
       loadFileEntries(entries, { resetTimelineViewport: true });
     }
 
-    function refreshFiles(){
+    async function refreshFiles(){
+      if (state.directoryHandle != null) {
+        try {
+          const entries = await collectDirectoryEntries(state.directoryHandle);
+          loadFileEntries(entries, { resetTimelineViewport: false });
+        } catch (error) {
+          alert('Failed to refresh the selected folder: ' + error.message);
+        }
+        return;
+      }
+
       if (!state.fileEntries.length) return;
       if (!state.fileEntries.every(entry => entry.live)) {
         alert('Live refresh requires selecting files or folders with the picker buttons so the viewer can reopen them in read-only mode.');
@@ -999,7 +1013,7 @@
         clearInterval(state.refreshTimer);
         state.refreshTimer = null;
       }
-      if (!els.autoRefresh.checked || !state.fileEntries.length || !state.fileEntries.every(entry => entry.live)) return;
+      if (!els.autoRefresh.checked || !canLiveRefresh()) return;
       const seconds = Math.max(1, Math.min(60, toNum(els.refreshInterval.value) ?? 3));
       els.refreshInterval.value = String(seconds);
       state.refreshTimer = setInterval(refreshFiles, seconds * 1000);
@@ -1677,6 +1691,7 @@
     function clearData(){
       state.files = [];
       state.fileEntries = [];
+      state.directoryHandle = null;
       state.rows = [];
       state.filtered = [];
       state.selectedRow = null;
