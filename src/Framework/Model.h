@@ -180,9 +180,9 @@ namespace Inertia
 				return static_cast<uint32_t>(GetFullTimestamp() / 1000);
 			}
 
-			uint64_t GetMilliseconds() const
+			uint32_t GetMilliseconds() const
 			{
-				return GetFullTimestamp();
+				return timestamp;
 			}
 
 			uint64_t GetFullTimestamp() const
@@ -238,8 +238,6 @@ namespace Inertia
 
 		namespace Log
 		{
-			using log_timestamp_t = millis_timestamp_t;
-
 			/// <summary>
 			/// Defines the types/levels of log messages.
 			/// </summary>
