@@ -131,7 +131,7 @@ namespace Inertia
 		/// <summary>
 		/// Interface for managing a boot counter repository.
 		/// </summary>
-		struct IBootCounterRepository
+		struct IBootCounterRepository : ILifecycleDriver
 		{
 			~IBootCounterRepository() = default;
 
@@ -141,7 +141,7 @@ namespace Inertia
 		/// <summary>
 		/// Interface for a log repository that manages storage and retrieval of log records with associated boot IDs and timestamps.
 		/// </summary>
-		struct ILogRepository
+		struct ILogRepository : ILifecycleDriver
 		{
 			~ILogRepository() = default;
 

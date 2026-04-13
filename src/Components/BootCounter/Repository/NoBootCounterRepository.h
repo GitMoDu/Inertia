@@ -19,10 +19,13 @@ namespace Inertia
 						: Inertia::Model::IBootCounterRepository()
 					{}
 
-					bool Setup()
+					bool Start() override
 					{
 						return true;
 					}
+
+					void Stop() override
+					{}
 
 					virtual uint32_t GetCounter() override
 					{

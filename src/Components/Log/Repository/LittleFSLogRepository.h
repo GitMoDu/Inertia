@@ -18,10 +18,15 @@ namespace Inertia
 			namespace Repository
 			{
 				class LittleFsLogRepository
-					: public Inertia::Model::ILifecycleDriver
-					, public Inertia::Model::ILogRepository
+					: public Inertia::Model::ILogRepository
 				{
 				private:
+					struct stored_log_header_t
+					{
+						uint16_t Version = 0;
+						uint16_t Crc = 0;
+					};
+
 					const char* Path;
 
 				private:
@@ -30,13 +35,16 @@ namespace Inertia
 					uint32_t NextRecordId = 1;
 					bool Started = false;
 
+					static constexpr uint16_t HeaderVersion = 1;
+					static constexpr uint32_t HeaderChecksumSeed = 541873179;
+					static constexpr size_t HeaderPayloadSize = sizeof(uint16_t);
+					static constexpr size_t HeaderSize = HeaderPayloadSize + sizeof(uint16_t);
 					static constexpr size_t RecordSize = sizeof(Inertia::Model::LogRecordStruct);
 					static constexpr size_t TempPathBufferSize = 96;
 
 				public:
 					explicit LittleFsLogRepository(const char* path = "/logs.bin")
-						: Inertia::Model::ILifecycleDriver()
-						, Inertia::Model::ILogRepository()
+						: Inertia::Model::ILogRepository()
 						, Path(path)
 					{}
 
@@ -62,8 +70,7 @@ namespace Inertia
 
 						if (!LittleFS.exists(Path))
 						{
-							Started = true;
-							return true;
+							return ResetStorage();
 						}
 
 						File file = LittleFS.open(Path, "r");
@@ -72,16 +79,38 @@ namespace Inertia
 							return ResetStorage();
 						}
 
-						const size_t storedCount = file.size() / RecordSize;
+						const size_t fileSize = file.size();
+						const bool hasHeader = TryReadHeader(file);
+						const bool rewriteRequired = !hasHeader;
+						size_t storedCount = 0;
 						size_t validCount = 0;
-						bool salvageRequired = (file.size() % RecordSize) != 0;
+						bool salvageRequired = false;
+
+						if (hasHeader)
+						{
+							const size_t dataSize = fileSize - HeaderSize;
+							storedCount = dataSize / RecordSize;
+							salvageRequired = (dataSize % RecordSize) != 0;
+						}
+						else
+						{
+							storedCount = fileSize / RecordSize;
+							salvageRequired = (fileSize % RecordSize) != 0;
+
+							if (!file.seek(0))
+							{
+								file.close();
+								return ResetStorage();
+							}
+						}
 
 						Inertia::Model::LogRecordStruct lastRecord{};
 						Inertia::Model::LogRecordStruct currentRecord{};
 						for (size_t i = 0; i < storedCount; ++i)
 						{
 							if (!ReadLogRecord(file, currentRecord)
-								|| !IsValidLogRecord(currentRecord))
+								|| !IsValidLogRecord(currentRecord)
+								|| (validCount > 0 && currentRecord.RecordId <= lastRecord.RecordId))
 							{
 								salvageRequired = true;
 								break;
@@ -93,7 +122,7 @@ namespace Inertia
 
 						file.close();
 
-						if (salvageRequired && !RewriteValidPrefix(validCount))
+						if ((rewriteRequired || salvageRequired) && !RewriteValidPrefix(validCount, hasHeader))
 						{
 							return ResetStorage();
 						}
@@ -127,6 +156,11 @@ namespace Inertia
 					bool AddEntry(const uint32_t bootId, const Inertia::Model::millis_timestamp_t& timestamp, const Inertia::Model::LogEntryStruct& logEntry) override
 					{
 						if (!EnsureInitialized() || IsFull())
+						{
+							return false;
+						}
+
+						if (!LittleFS.exists(Path) && !ResetStorage())
 						{
 							return false;
 						}
@@ -236,6 +270,15 @@ namespace Inertia
 							return false;
 						}
 
+						if (!WriteHeader(tempFile)
+							|| !sourceFile.seek(HeaderSize))
+						{
+							tempFile.close();
+							sourceFile.close();
+							LittleFS.remove(tempPath);
+							return false;
+						}
+
 						size_t remainingCount = 0;
 						Inertia::Model::LogRecordStruct record{};
 
@@ -296,7 +339,7 @@ namespace Inertia
 						{
 							return 0;
 						}
-						
+
 						// Cap the count at UINT32_MAX, respecting interface contract.
 						return Count <= UINT32_MAX ? static_cast<uint32_t>(Count) : UINT32_MAX;
 					}
@@ -314,7 +357,9 @@ namespace Inertia
 							return Count;
 						}
 
-						return info.totalBytes / RecordSize;
+						return info.totalBytes > HeaderSize
+							? static_cast<uint32_t>((info.totalBytes - HeaderSize) / RecordSize)
+							: 0;
 					}
 
 					bool IsFull() override
@@ -350,6 +395,24 @@ namespace Inertia
 							return false;
 						}
 
+						File file = LittleFS.open(Path, "w");
+						if (!file)
+						{
+							LittleFS.end();
+							return false;
+						}
+
+						const bool success = WriteHeader(file);
+						file.flush();
+						file.close();
+
+						if (!success)
+						{
+							LittleFS.remove(Path);
+							LittleFS.end();
+							return false;
+						}
+
 						Started = true;
 						return true;
 					}
@@ -365,7 +428,7 @@ namespace Inertia
 						return written > 0 && static_cast<size_t>(written) < bufferSize;
 					}
 
-					bool RewriteValidPrefix(const size_t validCount)
+					bool RewriteValidPrefix(const size_t validCount, const bool sourceHasHeader)
 					{
 						char tempPath[TempPathBufferSize]{};
 						if (!TryGetTempPath(tempPath, sizeof(tempPath)))
@@ -388,6 +451,15 @@ namespace Inertia
 						if (!tempFile)
 						{
 							sourceFile.close();
+							return false;
+						}
+
+						if (!WriteHeader(tempFile)
+							|| (sourceHasHeader && !sourceFile.seek(HeaderSize)))
+						{
+							tempFile.close();
+							sourceFile.close();
+							LittleFS.remove(tempPath);
 							return false;
 						}
 
@@ -430,6 +502,60 @@ namespace Inertia
 						return Hasher.getFletcher() == logRecord.Crc;
 					}
 
+					bool TryReadHeader(File& file)
+					{
+						if (file.size() < HeaderSize
+							|| !file.seek(0))
+						{
+							return false;
+						}
+
+						uint8_t headerBuffer[HeaderSize]{};
+						if (file.read(headerBuffer, sizeof(headerBuffer)) != sizeof(headerBuffer))
+						{
+							return false;
+						}
+
+						stored_log_header_t header{};
+						header.Version = ReadUint16(headerBuffer);
+						header.Crc = ReadUint16(headerBuffer + HeaderPayloadSize);
+
+						return header.Version == HeaderVersion
+							&& header.Crc == ComputeHeaderChecksum(header.Version);
+					}
+
+					bool WriteHeader(File& file)
+					{
+						uint8_t headerBuffer[HeaderSize]{};
+						BuildHeader(headerBuffer);
+
+						return file.write(headerBuffer, sizeof(headerBuffer)) == sizeof(headerBuffer);
+					}
+
+					void BuildHeader(uint8_t* const headerBuffer)
+					{
+						stored_log_header_t header{};
+						header.Version = HeaderVersion;
+						header.Crc = ComputeHeaderChecksum(header.Version);
+
+						WriteUint16(headerBuffer, header.Version);
+						WriteUint16(headerBuffer + HeaderPayloadSize, header.Crc);
+					}
+
+					uint16_t ComputeHeaderChecksum(const uint16_t version)
+					{
+						uint8_t payload[HeaderPayloadSize]{};
+						uint8_t seedBuffer[sizeof(HeaderChecksumSeed)]{};
+
+						WriteUint32(seedBuffer, HeaderChecksumSeed);
+						WriteUint16(payload, version);
+
+						Hasher.begin();
+						Hasher.add(seedBuffer, sizeof(seedBuffer));
+						Hasher.add(payload, sizeof(payload));
+						return Hasher.getFletcher();
+					}
+
 					bool ReadLogRecord(File& file, Inertia::Model::LogRecordStruct& logRecord)
 					{
 						return file.read(
@@ -439,7 +565,7 @@ namespace Inertia
 
 					bool ReadLogRecordAt(File& file, const size_t index, Inertia::Model::LogRecordStruct& logRecord)
 					{
-						if (!file.seek(index * RecordSize))
+						if (!file.seek(HeaderSize + (index * RecordSize)))
 						{
 							return false;
 						}
@@ -454,6 +580,34 @@ namespace Inertia
 						return file.write(
 							reinterpret_cast<const uint8_t*>(&logRecord),
 							sizeof(logRecord)) == sizeof(logRecord);
+					}
+
+					static void WriteUint16(uint8_t* const destination, const uint16_t value)
+					{
+						destination[0] = static_cast<uint8_t>(value & 0xFFu);
+						destination[1] = static_cast<uint8_t>((value >> 8) & 0xFFu);
+					}
+
+					static void WriteUint32(uint8_t* const destination, const uint32_t value)
+					{
+						destination[0] = static_cast<uint8_t>(value & 0xFFu);
+						destination[1] = static_cast<uint8_t>((value >> 8) & 0xFFu);
+						destination[2] = static_cast<uint8_t>((value >> 16) & 0xFFu);
+						destination[3] = static_cast<uint8_t>((value >> 24) & 0xFFu);
+					}
+
+					static uint16_t ReadUint16(const uint8_t* const source)
+					{
+						return static_cast<uint16_t>(source[0])
+							| static_cast<uint16_t>(static_cast<uint16_t>(source[1]) << 8);
+					}
+
+					static uint32_t ReadUint32(const uint8_t* const source)
+					{
+						return static_cast<uint32_t>(source[0])
+							| (static_cast<uint32_t>(source[1]) << 8)
+							| (static_cast<uint32_t>(source[2]) << 16)
+							| (static_cast<uint32_t>(source[3]) << 24);
 					}
 				};
 			}

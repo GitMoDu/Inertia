@@ -14,16 +14,14 @@ namespace Inertia
 			namespace Repository
 			{
 				class SerialOutRepository
-					: public Inertia::Model::ILifecycleDriver
-					, public Inertia::Model::ILogRepository
+					: public Inertia::Model::ILogRepository
 				{
 				private:
 					Stream& SerialOut;
 
 				public:
 					SerialOutRepository(Stream& serial)
-						: Inertia::Model::ILifecycleDriver()
-						, Inertia::Model::ILogRepository()
+						: Inertia::Model::ILogRepository()
 						, SerialOut(serial)
 					{}
 
