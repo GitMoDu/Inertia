@@ -11,6 +11,8 @@ namespace Inertia
 		{
 			static constexpr uint32_t LOG_TAG = 985820946; // Random unique tag for Log meta logs.
 
+			static constexpr uint32_t ENTRY_CRC_SEED = LOG_TAG; // Use the same unique tag as a seed for log entry CRC calculations.
+
 			enum class LogCodeEnum : uint8_t
 			{
 				ErrorRepositoryInvalidEntry, // Attempted to read an invalid log entry from a repository.

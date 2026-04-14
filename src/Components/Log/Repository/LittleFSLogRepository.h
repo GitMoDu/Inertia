@@ -183,9 +183,7 @@ namespace Inertia
 						record.Value = logEntry.Value;
 
 						// Calculate CRC over the record, excluding the Crc field itself, which is the last field in the struct.
-						Hasher.begin();
-						Hasher.add(reinterpret_cast<const uint8_t*>(&record), sizeof(record) - sizeof(record.Crc));
-						record.Crc = Hasher.getFletcher();
+						record.Crc = GetLogRecordCrc(record);
 
 						static_cast<Inertia::Model::LogEntryStruct&>(record) = logEntry;
 
@@ -497,9 +495,20 @@ namespace Inertia
 
 					bool IsValidLogRecord(const Inertia::Model::LogRecordStruct& logRecord)
 					{
+						return GetLogRecordCrc(logRecord) == logRecord.Crc;
+					}
+
+					uint16_t GetLogRecordCrc(const Inertia::Model::LogRecordStruct& record)
+					{
 						Hasher.begin();
-						Hasher.add(reinterpret_cast<const uint8_t*>(&logRecord), sizeof(logRecord) - sizeof(logRecord.Crc));
-						return Hasher.getFletcher() == logRecord.Crc;
+						Hasher.add(static_cast<uint8_t>(Inertia::Components::Log::ENTRY_CRC_SEED));
+						Hasher.add(static_cast<uint8_t>(Inertia::Components::Log::ENTRY_CRC_SEED >> 8));
+						Hasher.add(static_cast<uint8_t>(Inertia::Components::Log::ENTRY_CRC_SEED >> 16));
+						Hasher.add(static_cast<uint8_t>(Inertia::Components::Log::ENTRY_CRC_SEED >> 24));
+
+						Hasher.add(reinterpret_cast<const uint8_t*>(&record), sizeof(Inertia::Model::LogRecordStruct) - sizeof(Inertia::Model::LogRecordStruct::Crc));
+
+						return Hasher.getFletcher();
 					}
 
 					bool TryReadHeader(File& file)
