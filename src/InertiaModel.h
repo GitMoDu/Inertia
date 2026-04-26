@@ -5,6 +5,13 @@
 #include "Framework/Model.h"
 #include "Framework/Interface.h"
 
+// Task profiler model and timer drivers.
+#include "Components/TaskProfiler/Model.h"
+#include "Components/TaskProfiler/SamplingProfiler.h"
+#include "Components/TaskProfiler/SamplingTimers/RpPicoSamplingTimer.h"
+#include "Components/TaskProfiler/SamplingTimers/StmSamplingTimer.h"
+#include "Components/TaskProfiler/SamplingTimers/AvrSamplingTimer.h"
+
 // Generic driver task include.
 #include "Components/Variadic/VariadicDriverTask.h"
 

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PerformanceMeasure Trace Viewer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #181818; color: #ddd;
+  font-family: 'Courier New', monospace;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+}
+#toolbar {
+  flex-shrink: 0; background: #1e1e1e; border-bottom: 1px solid #333;
+  padding: 8px 14px; display: flex; align-items: center; gap: 12px; font-size: 13px;
+}
+#toolbar h1 { font-size: 14px; color: #7af; margin-right: 4px; letter-spacing: 1px; }
+button {
+  background: #252525; color: #bbb; border: 1px solid #444;
+  padding: 5px 12px; cursor: pointer; font-family: inherit; font-size: 12px; border-radius: 2px;
+}
+button:hover { background: #333; color: #fff; }
+#info { color: #666; font-size: 12px; margin-left: auto; }
+#main { flex: 1; overflow: hidden; position: relative; }
+#canvas-wrap { width: 100%; height: 100%; overflow: hidden; cursor: grab; }
+#canvas-wrap.dragging { cursor: grabbing; }
+canvas { display: block; }
+#tooltip {
+  position: fixed; background: #222; border: 1px solid #555;
+  padding: 8px 12px; font-size: 12px; pointer-events: none; display: none;
+  border-radius: 3px; line-height: 1.7; z-index: 50; max-width: 320px;
+}
+#drop-overlay {
+  position: fixed; inset: 0; background: rgba(40,100,220,0.15);
+  border: 3px dashed #5af; display: none; align-items: center;
+  justify-content: center; font-size: 22px; color: #7cf; z-index: 100; pointer-events: none;
+}
+#drop-overlay.visible { display: flex; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>⚡ TRACE</h1>
+  <button id="open-btn">Open File</button>
+  <button id="reset-btn">Fit View</button>
+  <span id="info">No file loaded — drag &amp; drop or open a trace .txt</span>
+</div>
+<div id="main">
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+  </div>
+</div>
+<div id="tooltip"></div>
+<div id="drop-overlay">Drop trace file here</div>
+<input type="file" id="file-input" accept=".txt,.log" style="display:none">
+
+<script>
+// ---- Layout ----
+const LABEL_W        = 175;
+const LANE_H         = 28;
+const LANE_PAD       = 4;
+const HEADER_H       = 34;
+const TICK_TARGET_PX = 90;
+const MIN_ZOOM       = 0.02;
+const MAX_ZOOM       = 120;
+
+// ---- State ----
+let tags    = {};  // id -> name
+let slots   = [];  // [{ timestamp, ids: Map<id,count>, total: number }]
+let taskIds = [];  // sorted unique task IDs
+let runs    = [];  // per lane index: [{startTs, endTs}]
+let minTs = 0, maxTs = 0;
+let zoom = 1, panX = 0;
+let dirty = true;
+
+// ---- Canvas ----
+const wrap   = document.getElementById('canvas-wrap');
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+
+function resize() { canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight; dirty = true; }
+window.addEventListener('resize', resize);
+resize();
+
+// ---- Palette ----
+const PALETTE = [
+  '#4fc3f7','#ff9800','#ef5350','#ab47bc','#66bb6a','#ffa726',
+  '#26c6da','#d4e157','#ff7043','#29b6f6','#9ccc65','#ec407a',
+  '#5c6bc0','#26a69a','#ffca28','#8d6e63','#f06292','#aed581',
+  '#4dd0e1','#ffb74d','#ba68c8','#4db6ac','#dce775','#ff8a65',
+  '#81d4fa','#a5d6a7',
+];
+const taskColor = id => PALETTE[id % PALETTE.length];
+
+// ---- Parse ----
+function parseTrace(text) {
+  tags = {}; slots = []; taskIds = []; runs = [];
+  const lines = text.split(/\r?\n/);
+  let mode = 'pre';
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line === 'Task tags:')        { mode = 'tags'; continue; }
+    if (line === 'Measurement Start') { mode = 'data'; continue; }
+    if (line === 'Measurement Stop')  { mode = 'done'; continue; }
+
+    if (mode === 'tags') {
+      const m = line.match(/^(\d+)\s*=\s*(.+)$/);
+      if (m) tags[parseInt(m[1])] = m[2].trim();
+
+    } else if (mode === 'data') {
+      const colon = line.indexOf(':');
+      if (colon === -1) continue;
+      const ts = parseInt(line.slice(0, colon));
+      if (isNaN(ts)) continue;
+
+      const idMap = new Map();
+      line.slice(colon + 1).split(',').forEach(s => {
+        const id = parseInt(s.trim());
+        if (!isNaN(id)) idMap.set(id, (idMap.get(id) ?? 0) + 1);
+      });
+
+      // total = sum of all counts including idle — honest denominator for CPU%
+      let total = 0;
+      for (const c of idMap.values()) total += c;
+
+      slots.push({ timestamp: ts, ids: idMap, total });
+    }
+  }
+
+  if (slots.length === 0) return false;
+
+  const idSet = new Set();
+  for (const s of slots)             for (const id of s.ids.keys()) idSet.add(id);
+  for (const k of Object.keys(tags)) idSet.add(parseInt(k));
+  taskIds = [...idSet].sort((a, b) => a - b);
+
+  minTs = slots[0].timestamp;
+  maxTs = slots[slots.length - 1].timestamp;
+
+  buildRuns();
+  fitView();
+  return true;
+}
+
+// ---- Run-length encode consecutive presence per task ----
+function buildRuns() {
+  runs = [];
+  for (let i = 0; i < taskIds.length; i++) {
+    const id = taskIds[i];
+    const taskRuns = [];
+    let cur = null;
+    for (const slot of slots) {
+      if (slot.ids.has(id)) {
+        if (!cur || slot.timestamp !== cur.endTs + 1) {
+          cur = { startTs: slot.timestamp, endTs: slot.timestamp };
+          taskRuns.push(cur);
+        } else {
+          cur.endTs = slot.timestamp;
+        }
+      } else {
+        cur = null;
+      }
+    }
+    runs.push(taskRuns);
+  }
+}
+
+// ---- View ----
+const msToX = ms => LABEL_W + (ms - panX) * zoom;
+const xToMs = x  => (x - LABEL_W) / zoom + panX;
+
+function fitView() {
+  const span   = maxTs - minTs || 1;
+  const availW = canvas.width - LABEL_W - 24;
+  zoom = Math.max(0.1, availW / span);
+  panX = minTs - 12 / zoom;
+  dirty = true;
+}
+
+function niceInterval(minMs) {
+  for (const s of [1,2,5,10,20,50,100,200,500,1000,2000,5000,10000,30000,60000])
+    if (s >= minMs) return s;
+  return 60000;
+}
+
+// ---- Render ----
+function render() {
+  if (!dirty) return;
+  dirty = false;
+
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#181818';
+  ctx.fillRect(0, 0, W, H);
+
+  if (slots.length === 0) {
+    ctx.fillStyle = '#444';
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No trace loaded.  Open a file or drag & drop.', W / 2, H / 2);
+    ctx.textAlign = 'left';
+    return;
+  }
+
+  const nLanes = taskIds.length;
+  const tickMs = niceInterval(TICK_TARGET_PX / zoom);
+  const firstTick = Math.ceil(panX / tickMs) * tickMs;
+  const lastMs = xToMs(W);
+  const innerH = LANE_H - LANE_PAD * 2;
+  const slotW  = Math.max(1, zoom); // pixel width of 1 ms at current zoom
+
+  // ---- Lane backgrounds ----
+  for (let i = 0; i < nLanes; i++) {
+    ctx.fillStyle = i % 2 === 0 ? '#1c1c1c' : '#1f1f1f';
+    ctx.fillRect(LABEL_W, HEADER_H + i * LANE_H, W - LABEL_W, LANE_H);
+  }
+
+  // ---- Grid lines ----
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 1;
+  for (let t = firstTick; t <= lastMs + tickMs; t += tickMs) {
+    const x = Math.round(msToX(t)) + 0.5;
+    if (x < LABEL_W || x > W) continue;
+    ctx.beginPath(); ctx.moveTo(x, HEADER_H); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  // ---- Pass 1: run track lines (top + bottom border per continuous run) ----
+  ctx.lineWidth = 1;
+  for (let i = 0; i < nLanes; i++) {
+    const id   = taskIds[i];
+    const topY = HEADER_H + i * LANE_H + LANE_PAD + 0.5;
+    const botY = HEADER_H + i * LANE_H + LANE_PAD + innerH - 0.5;
+    ctx.strokeStyle = taskColor(id);
+    ctx.globalAlpha = 0.35;
+    for (const run of runs[i]) {
+      const x1 = Math.max(msToX(run.startTs), LABEL_W);
+      const x2 = Math.min(msToX(run.endTs + 1), W);
+      if (x2 <= LABEL_W || x1 >= W) continue;
+      ctx.beginPath(); ctx.moveTo(x1, botY); ctx.lineTo(x2, botY); ctx.stroke();
+    }
+  }
+
+  // ---- Pass 2: per-slot CPU bars ----
+  // ratio = count / slot.total — true CPU fraction, no frequency constant needed.
+  // idle (id 0) fills the remainder so all ratios in a slot sum to 1.
+  ctx.globalAlpha = 1;
+  for (const slot of slots) {
+    const cx = msToX(slot.timestamp);
+    if (cx + slotW < LABEL_W || cx > W) continue;
+    const denom = slot.total || 1;
+    for (let i = 0; i < nLanes; i++) {
+      const id    = taskIds[i];
+      const count = slot.ids.get(id);
+      if (!count) continue;
+      const ratio  = count / denom;
+      const barW   = Math.max(1, slotW * ratio);
+      const laneY  = HEADER_H + i * LANE_H + LANE_PAD;
+      ctx.fillStyle   = taskColor(id);
+      ctx.globalAlpha = 0.55 + 0.45 * ratio;
+      ctx.fillRect(Math.max(cx, LABEL_W), laneY, barW, innerH);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // ---- Baseline rules ----
+  ctx.strokeStyle = '#2e2e2e';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < nLanes; i++) {
+    const y = HEADER_H + (i + 1) * LANE_H - 0.5;
+    ctx.beginPath(); ctx.moveTo(LABEL_W, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // ---- Header background ----
+  ctx.fillStyle = '#161616';
+  ctx.fillRect(0, 0, W, HEADER_H);
+  ctx.strokeStyle = '#2e2e2e';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, HEADER_H - 0.5); ctx.lineTo(W, HEADER_H - 0.5); ctx.stroke();
+
+  // ---- Tick labels ----
+  ctx.textAlign = 'center';
+  ctx.font = '11px monospace';
+  for (let t = firstTick; t <= lastMs + tickMs; t += tickMs) {
+    const x = Math.round(msToX(t));
+    if (x < LABEL_W || x > W) continue;
+    ctx.fillStyle = '#555';
+    ctx.beginPath(); ctx.moveTo(x + 0.5, HEADER_H - 5); ctx.lineTo(x + 0.5, HEADER_H); ctx.stroke();
+    ctx.fillStyle = '#777';
+    ctx.fillText(t + ' ms', x, HEADER_H - 9);
+  }
+  ctx.textAlign = 'left';
+
+  // ---- Label panel ----
+  ctx.fillStyle = '#161616';
+  ctx.fillRect(0, 0, LABEL_W, H);
+  ctx.strokeStyle = '#2e2e2e';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(LABEL_W - 0.5, 0); ctx.lineTo(LABEL_W - 0.5, H); ctx.stroke();
+
+  ctx.font = '12px monospace';
+  for (let i = 0; i < nLanes; i++) {
+    const id   = taskIds[i];
+    const y    = HEADER_H + i * LANE_H;
+    const name = tags[id] ?? `Task ${id}`;
+    ctx.fillStyle = taskColor(id);
+    ctx.fillRect(10, y + LANE_PAD + 3, 8, LANE_H - LANE_PAD * 2 - 6);
+    ctx.fillStyle = '#c8c8c8';
+    ctx.fillText(name, 24, y + LANE_H / 2 + 4);
+    ctx.strokeStyle = '#232323';
+    ctx.beginPath(); ctx.moveTo(0, y - 0.5); ctx.lineTo(LABEL_W, y - 0.5); ctx.stroke();
+  }
+
+  ctx.fillStyle = '#7af';
+  ctx.font = 'bold 11px monospace';
+  ctx.fillText('TASK', 10, HEADER_H / 2 + 5);
+}
+
+// ---- RAF loop ----
+(function loop() { render(); requestAnimationFrame(loop); })();
+
+// ---- Pan & zoom ----
+let drag = null;
+
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (!slots.length) return;
+  const rect   = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  if (mouseX < LABEL_W) return;
+  const pivot  = xToMs(mouseX);
+  const factor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
+  zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * factor));
+  panX = pivot - (mouseX - LABEL_W) / zoom;
+  dirty = true;
+}, { passive: false });
+
+wrap.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  drag = { sx: e.clientX, sp: panX };
+  wrap.classList.add('dragging');
+});
+window.addEventListener('mousemove', e => {
+  if (drag) { panX = drag.sp - (e.clientX - drag.sx) / zoom; dirty = true; }
+  updateTooltip(e);
+});
+window.addEventListener('mouseup', () => { drag = null; wrap.classList.remove('dragging'); });
+
+// ---- Tooltip ----
+const tooltip = document.getElementById('tooltip');
+
+function updateTooltip(e) {
+  if (!slots.length) { tooltip.style.display = 'none'; return; }
+  const rect = canvas.getBoundingClientRect();
+  const mx   = e.clientX - rect.left;
+  const my   = e.clientY - rect.top;
+  if (mx < LABEL_W || my < HEADER_H) { tooltip.style.display = 'none'; return; }
+
+  const ms = xToMs(mx);
+  let best = null, bestD = Infinity;
+  for (const s of slots) {
+    const d = Math.abs(s.timestamp - ms);
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  if (!best || bestD * zoom > 16) { tooltip.style.display = 'none'; return; }
+
+  const hoverLane = Math.floor((my - HEADER_H) / LANE_H);
+  const denom     = best.total || 1;
+  const activeIds = [...best.ids.keys()].sort((a, b) => a - b);
+
+  const lines = activeIds.map(id => {
+    const count  = best.ids.get(id);
+    const pct    = (100 * count / denom).toFixed(1);
+    const hilite = (hoverLane >= 0 && taskIds[hoverLane] === id);
+    const name   = tags[id] ?? `Task ${id}`;
+    const col    = taskColor(id);
+    return `<span style="color:${col}${hilite ? ';font-weight:bold' : ''}">■ ${name}</span>`
+         + `<span style="color:#888"> ${count}/${denom} = ${pct}%</span>`;
+  });
+
+  tooltip.innerHTML =
+    `<span style="color:#7af;font-weight:bold">${best.timestamp} ms</span><br>` +
+    (lines.length ? lines.join('<br>') : '<span style="color:#555">— idle —</span>');
+  tooltip.style.display = 'block';
+  tooltip.style.left    = (e.clientX + 16) + 'px';
+  tooltip.style.top     = (e.clientY - 12) + 'px';
+}
+wrap.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+
+// ---- File loading ----
+const infoEl = document.getElementById('info');
+
+function loadText(text) {
+  if (parseTrace(text)) {
+    const span = maxTs - minTs;
+    infoEl.textContent =
+      `${slots.length} slots · ${taskIds.length} tasks · ${minTs}–${maxTs} ms · ${span} ms span`;
+  } else {
+    infoEl.textContent = 'Parse failed — check format: Task tags: / Measurement Start / timestamp:id,id,...';
+  }
+  dirty = true;
+}
+
+document.getElementById('reset-btn').addEventListener('click', () => { if (slots.length) fitView(); });
+document.getElementById('open-btn').addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = ev => loadText(ev.target.result); r.readAsText(f);
+  e.target.value = '';
+});
+
+const dropOverlay = document.getElementById('drop-overlay');
+window.addEventListener('dragover',  e => { e.preventDefault(); dropOverlay.classList.add('visible'); });
+window.addEventListener('dragleave', e => { if (!e.relatedTarget) dropOverlay.classList.remove('visible'); });
+window.addEventListener('drop', e => {
+  e.preventDefault(); dropOverlay.classList.remove('visible');
+  const f = e.dataTransfer.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = ev => loadText(ev.target.result); r.readAsText(f);
+});
+</script>
+</body>
+</html>
