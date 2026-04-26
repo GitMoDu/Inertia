@@ -163,10 +163,11 @@ namespace Inertia
 						Slots[SlotIndex].Timestamp = timestamp;
 					}
 
-					const auto& task = Scheduler.getCurrentTask();
+					auto* task = Scheduler.getCurrentTask();
 					if (task != nullptr
 						&& task->iStatus.enabled
-						&& (task->iStatus.waiting == 0 || task->iStatus.inonenable)
+						&& (task->iStatus.waiting == 0
+							|| task->iStatus.inonenable)
 						)
 					{
 						Slots[SlotIndex].AddId(task->getId());
