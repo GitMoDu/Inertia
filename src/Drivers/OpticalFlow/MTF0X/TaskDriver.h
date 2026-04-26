@@ -4,7 +4,7 @@
 #define _TASK_OO_CALLBACKS
 #include <TSchedulerDeclarations.hpp>
 
-#include "../../../Framework/Model.h"
+#include "Model.h"
 #include "DeviceDriver.h"
 
 namespace Inertia
@@ -16,12 +16,15 @@ namespace Inertia
 			namespace MTF0X
 			{
 				template<typename SerialType,
-					uint8_t MaxReadBytes = 32>
+					uint8_t MaxReadBytes = 36>
 				class TaskDriver : public Model::ILifecycleDriver
 					, public Model::IDataSource<Model::timestamped_quality_flow_translation_t>
 					, public Model::IDataSource<Model::timestamped_quality_range16_t>
 					, public TS::Task
 				{
+				public:
+                   static constexpr uint32_t WarningLogIntervalMillis = 1000;
+
 				public:
 					using DataTypes = Components::Variadic::VariadicDataTypeList<
 						Model::timestamped_quality_flow_translation_t,
@@ -30,6 +33,10 @@ namespace Inertia
 				private:
 					Device::Driver DeviceDriver{};
 					SerialType& SerialInstance;
+					uint32_t LastReadLimitWarningMillis = 0;
+
+				public:
+					Inertia::Model::ILogListener* LogListener = nullptr;
 
 				public:
 					TaskDriver(TS::Scheduler& scheduler, SerialType& serial_port)
@@ -54,11 +61,23 @@ namespace Inertia
 					bool Start() override
 					{
 						SerialInstance.begin(Device::MTF01_BAUDRATE);
+						DeviceDriver.LogListener = LogListener;
 
 						if (DeviceDriver.Start())
 						{
 							TS::Task::enableDelayed(0);
 							return true;
+						}
+
+						if (LogListener != nullptr)
+						{
+							LogListener->OnLog(Inertia::Model::LogEntryStruct{
+								.Tag = Model::LOG_TAG,
+								.Instance = 0,
+								.Type = Inertia::Model::LogTypeEnum::Error,
+								.Code = static_cast<uint8_t>(Model::LogCodeEnum::TaskDriverStartFailed),
+								.Value = 0
+								});
 						}
 
 						return false;
@@ -86,6 +105,24 @@ namespace Inertia
 						{
 							readCount++;
 							DeviceDriver.Parse(SerialInstance.read());
+						}
+
+						if (readCount >= MaxReadBytes
+							&& SerialInstance.available()
+							&& LogListener != nullptr)
+						{
+                          const uint32_t now = millis();
+							if ((now - LastReadLimitWarningMillis) >= WarningLogIntervalMillis)
+							{
+								LastReadLimitWarningMillis = now;
+								LogListener->OnLog(Inertia::Model::LogEntryStruct{
+									.Tag = Model::LOG_TAG,
+									.Instance = 0,
+									.Type = Inertia::Model::LogTypeEnum::Warning,
+									.Code = static_cast<uint8_t>(Model::LogCodeEnum::WarningSerialReadLimitReached),
+									.Value = readCount
+									});
+							}
 						}
 
 						// Re-enable if we just read some bytes or a serial event occurred during processing.

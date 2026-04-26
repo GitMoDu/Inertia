@@ -4,7 +4,7 @@
 // Uncomment the following line to enable detailed diagnostics for the MTF-0X driver, including sync counts, packet counts, CRC errors, and last packet details. Use this for debugging purposes, but be aware that it may impact performance due to serial printing.
 //#define MTF_0X_DEBUG
 
-#include "../../../Framework/Model.h"
+#include "Model.h"
 
 namespace Inertia
 {
@@ -20,6 +20,9 @@ namespace Inertia
 
 					class Driver
 					{
+					private:
+						static constexpr uint32_t ErrorLogIntervalMillis = 1000;
+
 					private:
 						enum class StateEnum : uint8_t
 						{
@@ -76,10 +79,17 @@ namespace Inertia
 						uint32_t FlowPacketCount = 0;
 						uint32_t CrcErrorCount = 0;
 						uint32_t OversizePayloadCount = 0;
+						uint32_t LastOversizePayloadLogMillis = 0;
+						uint32_t LastPayloadCrcLogMillis = 0;
+						uint32_t LastUnexpectedPayloadSizeLogMillis = 0;
 						uint16_t LastFunction = 0;
 						uint16_t LastPayloadSize = 0;
 						uint8_t LastChecksumExpected = 0;
 						uint8_t LastChecksumReceived = 0;
+
+					public:
+						Inertia::Model::ILogListener* LogListener = nullptr;
+						uint8_t InstanceId = 0;
 
 					public:
 						Driver() {}
@@ -89,7 +99,6 @@ namespace Inertia
 							if (FlowDataAvailable)
 							{
 								memcpy(&out_data, &FlowData, sizeof(Model::timestamped_quality_flow_translation_t));
-								FlowDataAvailable = false; // Consume — caller must wait for next packet.
 								return true;
 							}
 
@@ -101,7 +110,6 @@ namespace Inertia
 							if (RangeDataAvailable)
 							{
 								memcpy(&out_data, &RangeData, sizeof(Model::timestamped_quality_range16_t));
-								RangeDataAvailable = false; // Consume — caller must wait for next packet.
 								return true;
 							}
 
@@ -128,6 +136,9 @@ namespace Inertia
 							FlowPacketCount = 0;
 							CrcErrorCount = 0;
 							OversizePayloadCount = 0;
+							LastOversizePayloadLogMillis = 0;
+							LastPayloadCrcLogMillis = 0;
+							LastUnexpectedPayloadSizeLogMillis = 0;
 							LastFunction = 0;
 							LastPayloadSize = 0;
 							LastChecksumExpected = 0;
@@ -218,6 +229,9 @@ namespace Inertia
 								if (CurrentPayloadSize > MAX_PAYLOAD_SIZE)
 								{
 									OversizePayloadCount++;
+									Log(Inertia::Model::LogTypeEnum::Warning,
+										Model::LogCodeEnum::ErrorOversizePayload,
+										static_cast<uint8_t>(CurrentPayloadSize));
 									ResetParserWithResync(incoming_byte);
 								}
 								else if (CurrentPayloadSize == 0)
@@ -255,6 +269,9 @@ namespace Inertia
 									CrcErrorCount++;
 									LastChecksumReceived = incoming_byte;
 									LastChecksumExpected = CurrentChecksum;
+									Log(Inertia::Model::LogTypeEnum::Warning,
+										Model::LogCodeEnum::ErrorPayloadCrc,
+										incoming_byte);
 								}
 
 								ResetParser();
@@ -262,43 +279,6 @@ namespace Inertia
 							}
 
 							return is_new_packet;
-						}
-
-						void LogDiagnosticsIfDue()
-						{
-#if defined(MTF_0X_DEBUG)
-							const uint32_t now = millis();
-							if ((now - LastDiagnosticMillis) < DIAGNOSTIC_INTERVAL_MILLIS)
-							{
-								return;
-							}
-
-							LastDiagnosticMillis = now;
-							Serial.print(F("MTF diag sync="));
-							Serial.print(SyncCount);
-							Serial.print(F(" hdr="));
-							Serial.print(FrameHeaderCount);
-							Serial.print(F(" flow="));
-							Serial.print(FlowPacketCount);
-							Serial.print(F(" range="));
-							Serial.print(RangePacketCount);
-							Serial.print(F(" crc="));
-							Serial.print(CrcErrorCount);
-							Serial.print(F(" oversize="));
-							Serial.print(OversizePayloadCount);
-							Serial.print(F(" lastFn=0x"));
-							Serial.print(LastFunction, HEX);
-							Serial.print(F(" lastLen="));
-							Serial.print(LastPayloadSize);
-							if (CrcErrorCount)
-							{
-								Serial.print(F(" lastCrc=0x"));
-								Serial.print(LastChecksumReceived, HEX);
-								Serial.print(F("/0x"));
-								Serial.print(LastChecksumExpected, HEX);
-							}
-							Serial.println();
-#endif
 						}
 
 					private:
@@ -327,6 +307,50 @@ namespace Inertia
 								| ((static_cast<uint32_t>(data[1]) << 8))
 								| ((static_cast<uint32_t>(data[2]) << 16))
 								| ((static_cast<uint32_t>(data[3]) << 24)));
+						}
+
+						void Log(const Inertia::Model::LogTypeEnum type,
+							const Model::LogCodeEnum code,
+							const uint8_t value)
+						{
+							if (LogListener != nullptr && ShouldLog(code))
+							{
+								LogListener->OnLog(Inertia::Model::LogEntryStruct{
+									.Tag = Model::LOG_TAG,
+									.Instance = InstanceId,
+									.Type = type,
+									.Code = static_cast<uint8_t>(code),
+									.Value = value
+									});
+							}
+						}
+
+						bool ShouldLog(const Model::LogCodeEnum code)
+						{
+							uint32_t* lastLogMillis = nullptr;
+							switch (code)
+							{
+							case Model::LogCodeEnum::ErrorOversizePayload:
+								lastLogMillis = &LastOversizePayloadLogMillis;
+								break;
+							case Model::LogCodeEnum::ErrorPayloadCrc:
+								lastLogMillis = &LastPayloadCrcLogMillis;
+								break;
+							case Model::LogCodeEnum::ErrorUnexpectedPayloadSize:
+								lastLogMillis = &LastUnexpectedPayloadSizeLogMillis;
+								break;
+							default:
+								return true;
+							}
+
+							const uint32_t now = millis();
+							if ((now - *lastLogMillis) < ErrorLogIntervalMillis)
+							{
+								return false;
+							}
+
+							*lastLogMillis = now;
+							return true;
 						}
 
 						void ResetParser()
@@ -384,12 +408,24 @@ namespace Inertia
 								{
 									CommitRangePacket();
 								}
+								else
+								{
+									Log(Inertia::Model::LogTypeEnum::Warning,
+										Model::LogCodeEnum::ErrorUnexpectedPayloadSize,
+										static_cast<uint8_t>(CurrentPayloadSize));
+								}
 								break;
 
 							case MSP_V2_MSG_ID_OPTICAL_FLOW:
 								if (CurrentPayloadSize == FLOW_PAYLOAD_SIZE)
 								{
 									CommitFlowPacket();
+								}
+								else
+								{
+									Log(Inertia::Model::LogTypeEnum::Warning,
+										Model::LogCodeEnum::ErrorUnexpectedPayloadSize,
+										static_cast<uint8_t>(CurrentPayloadSize));
 								}
 								break;
 
