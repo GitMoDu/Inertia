@@ -282,9 +282,6 @@ namespace Inertia
 						else
 						{
 							// Not enough data to update AHRS.
-							AhrsDataAvailable = false;
-							GravityRemovedAccelerationAvailable = false;
-							AhrsAngularVelocityAvailable = false;
 						}
 					}
 
