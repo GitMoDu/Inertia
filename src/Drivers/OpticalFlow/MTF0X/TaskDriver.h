@@ -20,7 +20,7 @@ namespace Inertia
 				class TaskDriver : public Model::ILifecycleDriver
 					, public Model::IDataSource<Model::timestamped_quality_flow_translation_t>
 					, public Model::IDataSource<Model::timestamped_quality_range16_t>
-					, private TS::Task
+					, public TS::Task
 				{
 				public:
 					using DataTypes = Components::Variadic::VariadicDataTypeList<

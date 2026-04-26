@@ -29,7 +29,7 @@ namespace Inertia
 				template<uint8_t BleConnectedPin>
 				class WatchDogTask
 					: public Inertia::Model::IObserver<Inertia::Model::ConnectionEnum>
-					, protected TS::Task
+					, public TS::Task
 				{
 				private:
 					enum class StateEnum : uint8_t

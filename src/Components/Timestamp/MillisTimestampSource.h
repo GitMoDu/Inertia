@@ -17,7 +17,7 @@ namespace Inertia
 		namespace Timestamp
 		{
 			struct MillisTimestampSource : public Inertia::Model::IMillisTimestampSource
-				, private TS::Task
+				, public TS::Task
 			{
 			private:
 				enum class StateEnum

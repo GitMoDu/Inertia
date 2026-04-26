@@ -71,7 +71,7 @@ namespace Inertia
 			/// Periodic driver step task, invoking IPeriodicDriver::Step() on schedule.
 			/// Start() attempts driver startup; on success the internal Task is enabled.
 			/// </summary>
-			class DriverStepperTask : public Model::ILifecycleDriver, private TS::Task
+			class DriverStepperTask : public Model::ILifecycleDriver, public TS::Task
 			{
 			public:
 				// Reference to step driver.
