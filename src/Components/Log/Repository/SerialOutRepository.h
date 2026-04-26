@@ -37,7 +37,7 @@ namespace Inertia
 						// No-op.
 					}
 
-					bool AddEntry(const uint32_t bootId, const Inertia::Model::millis_timestamp_t& timestamp, const Inertia::Model::LogEntryStruct& logEntry) override
+					bool AddEntry(const uint32_t /*bootId*/, const Inertia::Model::millis_timestamp_t& timestamp, const Inertia::Model::LogEntryStruct& logEntry) override
 					{
 						if (SerialOut.availableForWrite() == 0)
 						{
