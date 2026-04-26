@@ -1,6 +1,10 @@
 #ifndef _INERTIA_COMPONENTS_STORAGE_LITTLEFS_FILESYSTEM_h
 #define _INERTIA_COMPONENTS_STORAGE_LITTLEFS_FILESYSTEM_h
 
+#if defined(ARDUINO_ARCH_RP2040) \
+ || defined(ARDUINO_ARCH_ESP8266) \
+ || defined(ARDUINO_ARCH_ESP32)
+
 #include "Model.h"
 
 namespace Inertia
@@ -113,4 +117,5 @@ namespace Inertia
 		}
 	}
 }
+#endif
 #endif

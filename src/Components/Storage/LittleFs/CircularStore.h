@@ -1,12 +1,11 @@
 #ifndef _INERTIA_COMPONENTS_STORAGE_LITTLEFS_CIRCULAR_STORE_h
 #define _INERTIA_COMPONENTS_STORAGE_LITTLEFS_CIRCULAR_STORE_h
 
-#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+#if defined(ARDUINO_ARCH_RP2040) \
+ || defined(ARDUINO_ARCH_ESP8266) \
+ || defined(ARDUINO_ARCH_ESP32)
 
-#if defined(ARDUINO)
-#include <Arduino.h>
-#endif
-
+#include "Model.h"
 #include <LittleFS.h>
 #include <Fletcher16.h>
 

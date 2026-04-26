@@ -1,6 +1,10 @@
 #ifndef _INERTIA_COMPONENTS_AHRS_REEFWING_TEMPLATE_DRIVER_h
 #define _INERTIA_COMPONENTS_AHRS_REEFWING_TEMPLATE_DRIVER_h
 
+#if defined(ARDUINO_ARCH_RP2040) \
+ || defined(ARDUINO_ARCH_ESP8266) \
+ || defined(ARDUINO_ARCH_ESP32)
+
 #define _TASK_OO_CALLBACKS
 #include <TSchedulerDeclarations.hpp>
 
@@ -497,4 +501,5 @@ namespace Inertia
 		}
 	}
 }
+#endif
 #endif

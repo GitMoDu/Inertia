@@ -1,6 +1,10 @@
 #ifndef _INERTIA_COMPONENTS_LOG_REPOSITORY_LITTLEFS_LOG_REPOSITORY_h
 #define _INERTIA_COMPONENTS_LOG_REPOSITORY_LITTLEFS_LOG_REPOSITORY_h
 
+#if defined(ARDUINO_ARCH_RP2040) \
+ || defined(ARDUINO_ARCH_ESP8266) \
+ || defined(ARDUINO_ARCH_ESP32)
+
 #include "../Model.h"
 
 #include "../../Storage/LittleFs/CircularStore.h"
@@ -123,9 +127,9 @@ namespace Inertia
 					bool GetRecordAt(const size_t index,
 						Inertia::Model::LogRecordStruct& logRecord) override
 					{
-						if (!Started || index >= FileStore.GetCount()) 
+						if (!Started || index >= FileStore.GetCount())
 						{
-							return false; 
+							return false;
 						}
 
 						return FileStore.Read(static_cast<uint32_t>(index), logRecord);
@@ -203,4 +207,5 @@ namespace Inertia
 	}
 }
 
+#endif
 #endif

@@ -1,7 +1,12 @@
 #ifndef _INERTIA_COMPONENTS_STORAGE_LITTLEFS_STRUCT_STORE_h
 #define _INERTIA_COMPONENTS_STORAGE_LITTLEFS_STRUCT_STORE_h
 
-#include <InertiaModel.h>
+#if defined(ARDUINO_ARCH_RP2040) \
+ || defined(ARDUINO_ARCH_ESP8266) \
+ || defined(ARDUINO_ARCH_ESP32)
+
+#include "Model.h"
+#include <LittleFS.h>
 #include <Fletcher16.h>
 
 namespace Inertia
@@ -136,4 +141,5 @@ namespace Inertia
 	}
 }
 
+#endif
 #endif

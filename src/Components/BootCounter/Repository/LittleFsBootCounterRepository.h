@@ -1,9 +1,10 @@
 #ifndef _INERTIA_COMPONENTS_BOOT_COUNTER_LITTLE_FS_BOOT_COUNTER_REPOSITORY_h
 #define _INERTIA_COMPONENTS_BOOT_COUNTER_LITTLE_FS_BOOT_COUNTER_REPOSITORY_h
 
-#if defined(ARDUINO)
-#include <Arduino.h>
-#endif
+#if defined(ARDUINO_ARCH_RP2040) \
+ || defined(ARDUINO_ARCH_ESP8266) \
+ || defined(ARDUINO_ARCH_ESP32)
+
 #include "../Model.h"
 #include "../../Storage/LittleFs/StructStore.h"
 
@@ -84,5 +85,5 @@ namespace Inertia
 		}
 	}
 }
-
+#endif
 #endif
