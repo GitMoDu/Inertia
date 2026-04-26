@@ -28,9 +28,9 @@ namespace Inertia
 				, public TS::Task
 			{
 			private:
-				static constexpr uint8_t PUSH_PERIOD = 2;
-				static constexpr uint8_t HOLD_PERIOD = 5;
-				static constexpr uint8_t RETRY_PERIOD = 10;
+				static constexpr uint8_t PUSH_PERIOD = 10;
+				static constexpr uint8_t HOLD_PERIOD = 200;
+				static constexpr uint8_t RETRY_PERIOD = 20;
 
 				struct BufferedLogEntryStruct
 				{

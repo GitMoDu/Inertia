@@ -1,9 +1,12 @@
-#ifndef _INERTIA_COMPONENTS_LOG_REPOSITORY_LITTLEFS_LOG_REPOSITORY_h
-#define _INERTIA_COMPONENTS_LOG_REPOSITORY_LITTLEFS_LOG_REPOSITORY_h
+#ifndef _INERTIA_COMPONENTS_LOG_REPOSITORY_FRAM_LOG_REPOSITORY_h
+#define _INERTIA_COMPONENTS_LOG_REPOSITORY_FRAM_LOG_REPOSITORY_h
 
+#if defined(ARDUINO)
+#include <Arduino.h>
+#endif
+#include <Fletcher16.h>
 #include "../Model.h"
-
-#include "../../Storage/LittleFs/CircularStore.h"
+#include "../../../Components/Storage/Fram/CircularStore.h"
 
 namespace Inertia
 {
@@ -13,80 +16,67 @@ namespace Inertia
 		{
 			namespace Repository
 			{
-				template<uint32_t MaxCapacity = 1024>
-				class LittleFsLogRepository : public Inertia::Model::ILogRepository
+				template<uint32_t MaxCapacity = 256, uint16_t TBaseAddress = 0>
+				class FramLogRepository
+					: public Inertia::Model::ILogRepository
 				{
 				private:
-					// Bump StoreVersion whenever LogRecordStruct layout changes.
 					static constexpr uint16_t StoreVersion = 1;
 
-					using Store = Inertia::Components::Storage::LittleFs::CircularStore<
+					using Store = Inertia::Components::Storage::Fram::CircularStore<
 						Inertia::Model::LogRecordStruct,
 						MaxCapacity,
-						StoreVersion>;
-
-				private:
-					Store       FileStore{};
-					Fletcher16  Hasher{};
-					uint32_t    NextRecordId = 1;
-					bool        Started = false;
-					const char* Path;
+						StoreVersion,
+						TBaseAddress>;
 
 				public:
-					explicit LittleFsLogRepository(const char* path = "/logs.bin")
+					static constexpr uint16_t BaseAddress = TBaseAddress;
+					static constexpr size_t UsedSize = Store::UsedSize;
+
+				private:
+					Store FileStore;
+					Fletcher16 Hasher{};
+					uint32_t NextRecordId = 1;
+					bool Started = false;
+
+				public:
+					explicit FramLogRepository(Inertia::Components::Storage::Fram::IFramDriver& driver)
 						: Inertia::Model::ILogRepository()
-						, Path(path)
+						, FileStore(driver)
 					{}
 
-					// Caller is responsible for LittleFS.begin() before Start()
-					// and LittleFS.end() after Stop().
 					bool Start() override
 					{
-						if (Started)
-						{
-							return true;
-						}
-
-						if (!FileStore.Start(Path))
-						{
-							return false;
-						}
+						if (Started) { return true; }
+						if (!FileStore.Start()) { return false; }
 
 						NextRecordId = 1;
 
 						if (FileStore.GetCount() > 0)
 						{
-							Inertia::Model::LogRecordStruct record{};
-							Inertia::Model::LogRecordStruct lastRecord{};
+							Inertia::Model::LogRecordStruct oldest{};
+							Inertia::Model::LogRecordStruct newest{};
 							const uint32_t count = FileStore.GetCount();
-							bool integrityOk = true;
 
-							for (uint32_t i = 0; i < count; ++i)
-							{
-								if (!FileStore.Read(i, record)
-									|| !IsValidRecord(record)
-									|| (i > 0 && record.RecordId != (lastRecord.RecordId + 1)))
-								{
-									integrityOk = false;
-									break;
-								}
+							const bool ok =
+								FileStore.Read(0, oldest)
+								&& FileStore.Read(count - 1, newest)
+								&& IsValidRecord(oldest)
+								&& IsValidRecord(newest)
+								&& oldest.RecordId > 0
+								&& newest.RecordId == oldest.RecordId + (count - 1);
 
-								lastRecord = record;
-							}
-
-							if (!integrityOk)
+							if (!ok)
 							{
 								FileStore.Reset();
-								// NextRecordId stays 1, count is now 0.
 							}
 							else
 							{
-								NextRecordId = lastRecord.RecordId + 1;
+								NextRecordId = newest.RecordId + 1;
 							}
 						}
 
 						Started = true;
-
 						return true;
 					}
 
@@ -101,10 +91,7 @@ namespace Inertia
 						const Inertia::Model::millis_timestamp_t& timestamp,
 						const Inertia::Model::LogEntryStruct& logEntry) override
 					{
-						if (!Started)
-						{
-							return false;
-						}
+						if (!Started) { return false; }
 
 						Inertia::Model::LogRecordStruct record{};
 						static_cast<Inertia::Model::LogEntryStruct&>(record) = logEntry;
@@ -123,11 +110,7 @@ namespace Inertia
 					bool GetRecordAt(const size_t index,
 						Inertia::Model::LogRecordStruct& logRecord) override
 					{
-						if (!Started || index >= FileStore.GetCount()) 
-						{
-							return false; 
-						}
-
+						if (!Started || index >= FileStore.GetCount()) { return false; }
 						return FileStore.Read(static_cast<uint32_t>(index), logRecord);
 					}
 
@@ -143,13 +126,7 @@ namespace Inertia
 						if (!Started) { return false; }
 						if (FileStore.GetCount() == 0) { return true; }
 
-						Inertia::Model::LogRecordStruct oldestRecord{};
-						if (!FileStore.Read(0, oldestRecord) || !IsValidRecord(oldestRecord))
-						{
-							return false;
-						}
-
-						const uint32_t oldestId = oldestRecord.RecordId;
+						const uint32_t oldestId = NextRecordId - FileStore.GetCount();
 						if (recordId < oldestId) { return true; }
 
 						uint32_t toDelete = (recordId - oldestId) + 1;
@@ -162,20 +139,12 @@ namespace Inertia
 						NextRecordId = 1;
 					}
 
-					uint32_t GetCount() override
-					{
-						return Started ? FileStore.GetCount() : 0;
-					}
+					uint32_t GetCount()    override { return Started ? FileStore.GetCount() : 0; }
+					uint32_t GetCapacity() override { return MaxCapacity; }
+					bool     IsFull()      override { return !Started || FileStore.IsFull(); }
 
-					uint32_t GetCapacity() override
-					{
-						return MaxCapacity;
-					}
-
-					bool IsFull() override
-					{
-						return !Started;
-					}
+					// Bytes occupied in FRAM — use to calculate baseAddress for adjacent stores.
+					static constexpr size_t GetStoreSize() { return UsedSize; }
 
 				private:
 					bool IsValidRecord(const Inertia::Model::LogRecordStruct& record)

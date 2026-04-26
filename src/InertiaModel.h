@@ -18,11 +18,24 @@
 // Timestamp source include.
 #include "Components/Timestamp/MillisTimestampSource.h"
 
+// Storage model and components.
+#include "Components/Storage/Allocation/Model.h"
+#include "Components/Storage/Allocation/Allocator.h"
+#include "Components/Storage/Fram/Model.h"
+#include "Components/Storage/Fram/CircularStore.h"
+#include "Components/Storage/Fram/StructStore.h"
+#include "Components/Storage/LittleFs/CircularStore.h"
+#include "Components/Storage/LittleFs/StructStore.h"
+
+// Storage model and drivers for LittleFS on SPIFFS or built in flash.
+#include "Components/Storage/LittleFs/FileSystem.h"
+
 // Log model and components.
 #include "Components/Log/Model.h"
 #include "Components/Log/BufferTask.h"
 #include "Components/Log/Repository/LittleFsLogRepository.h"
 #include "Components/Log/Repository/SerialOutRepository.h"
+#include "Components/Log/Repository/FramLogRepository.h"
 
 // Boot counter model and components.
 #include "Components/BootCounter/Model.h"
