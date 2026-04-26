@@ -55,6 +55,10 @@
 // AHRS model.
 #include "Components/Ahrs/Model.h"
 
+// Xio AHRS model and template driver.
+#include "Components/Ahrs/Xio/Model.h"
+#include "Components/Ahrs/Xio/TemplateDriver.h"
+
 // Reefwing AHRS model and template driver.
 #include "Components/Ahrs/Reefwing/Model.h"
 #include "Components/Ahrs/Reefwing/TemplateDriver.h"
