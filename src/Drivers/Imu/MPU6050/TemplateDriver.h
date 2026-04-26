@@ -83,7 +83,8 @@ namespace Inertia
 				/// <typeparam name="accelerometerRange">Accelerometer full-scale range.</typeparam>
 				/// <typeparam name="gyroscopeRange">Gyroscope full-scale range.</typeparam>
 				/// <typeparam name="dlpfMode">Digital low-pass filter mode.</typeparam>
-				template<uint8_t Address = Device::DEVICE_ADDRESS_LOW,
+				template<typename WireType = TwoWire,
+					uint8_t Address = Device::DEVICE_ADDRESS_LOW,
 					AccelerometerRangeEnum accelerometerRange = AccelerometerRangeEnum::Range16g,
 					GyroscopeRangeEnum gyroscopeRange = GyroscopeRangeEnum::Range2000dps,
 					DlpfModeEnum dlpfMode = DlpfModeEnum::Bw98,
@@ -106,8 +107,6 @@ namespace Inertia
 					static constexpr int16_t TEMPERATURE_KELVIN_OFFSET = 27315; // 273.15 degrees Celsius in centi-degrees.
 					static constexpr int16_t TEMPERATURE_CONVERSION_OFFSET = TEMPERATURE_KELVIN_OFFSET + TEMPERATURE_OFFSET_CENTI_DEG;
 
-					static constexpr uint32_t CLOCK_SPEED_I2C = 400000;
-
 					static constexpr uint8_t SETUP_TIMEOUT_MS = 4;
 					static constexpr uint8_t READ_TIMEOUT_MS = 2;
 
@@ -116,10 +115,10 @@ namespace Inertia
 					uint8_t InstanceId = 0; // Optional instance ID for distinguishing between multiple IMU instances in logs.
 
 				private:
-					TwoWire& WireInstance;
+					WireType& WireInstance;
 
 				private:
-					using DeviceDriverType = Device::Driver;
+					using DeviceDriverType = Device::Driver<WireType>;
 					DeviceDriverType DeviceDriver;
 
 					AccelerometerRangeEnum AccelRange;
@@ -142,7 +141,7 @@ namespace Inertia
 					bool ImuDataAvailable = false;
 
 				public:
-					TemplateDriver(TwoWire& wire = Wire)
+					TemplateDriver(WireType& wire = Wire)
 						: Model::IPeriodicDriver()
 						, Model::IDataSource<Model::timestamped_acceleration_t>()
 						, Model::IDataSource<Model::timestamped_angular_velocity_t>()
@@ -178,8 +177,6 @@ namespace Inertia
 					bool Start() final
 					{
 						ImuDataAvailable = false;
-
-						WireInstance.setClock(CLOCK_SPEED_I2C);
 
 #if defined(ARDUINO_ARCH_RP2040)
 						WireInstance.setTimeout(SETUP_TIMEOUT_MS, false);
@@ -225,9 +222,6 @@ namespace Inertia
 					{
 						const uint32_t timestamp = micros();
 
-						// Ensure I2C clock speed is set correctly in case other drivers have changed it.
-						WireInstance.setClock(CLOCK_SPEED_I2C);
-
 #if defined(ARDUINO_ARCH_RP2040)
 						WireInstance.setTimeout(READ_TIMEOUT_MS, true);
 #endif
@@ -242,7 +236,7 @@ namespace Inertia
 									LogListener->OnLog(Inertia::Model::LogEntryStruct{
 										.Tag = LOG_TAG,
 										.Instance = InstanceId,
-										.Type = Inertia::Model::LogTypeEnum::Error,
+										.Type = Inertia::Model::LogTypeEnum::Warning,
 										.Code = static_cast<uint8_t>(LogCodeEnum::ErrorReadMotion),
 										.Value = 0
 										});
@@ -271,7 +265,7 @@ namespace Inertia
 								LogListener->OnLog(Inertia::Model::LogEntryStruct{
 									.Tag = LOG_TAG,
 									.Instance = InstanceId,
-									.Type = Inertia::Model::LogTypeEnum::Error,
+									.Type = Inertia::Model::LogTypeEnum::Warning,
 									.Code = static_cast<uint8_t>(LogCodeEnum::ErrorReadTemperature),
 									.Value = 0
 									});
@@ -311,7 +305,7 @@ namespace Inertia
 								LogListener->OnLog(Inertia::Model::LogEntryStruct{
 									.Tag = LOG_TAG,
 									.Instance = InstanceId,
-									.Type = Inertia::Model::LogTypeEnum::Error,
+									.Type = Inertia::Model::LogTypeEnum::Warning,
 									.Code = static_cast<uint8_t>(LogCodeEnum::RecoveryAttempt),
 									.Value = RecoveryCount 
 									});
