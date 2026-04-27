@@ -1,84 +1,63 @@
-# Inertia Framework
+# Inertia
 
-Embedded framework for robotic vehicles (quad-copters, rc cars, planes, etc...).
+Inertia is an embedded C/C++ library for motion-oriented and robotics-oriented systems.
 
-### Layered Architecture
-| Layer | Responsibility |
-|-------|----------------|
-| Model | Fundamental data types, units, integer angle conversion, abstract interfaces (`ILifecycleDriver`, `IPeriodicDriver`, `IDataSource<T>`, driver task contracts) |
-| Drivers | Concrete hardware or algorithmic data acquisition (IMU, optical flow, AHRS providers) implementing Model interfaces |
-| Composition | Variadic driver task wrappers aggregating multiple `IDataSource<T>` views and scheduling periodic `Step()` calls |
-| Scenes / Consumer Logic | Higher‑level modules consuming data |
+At the moment, this repository is in an active restructuring phase. Core concepts are already present, but the public layout, namespaces, module boundaries, and some APIs are still settling.
 
-### Core Data Types (Model)
-All timestamped types include a `uint32_t timestamp` in microseconds (caller is responsible for consistency). Metrics use integer scaling for speed and portability.
-- `vector16_t` / `vector32_t` base numeric 3D vectors
-- `timestamped_vector16_t` / `timestamped_vector32_t` time‑stamped variants
-- `timestamped_acceleration_t`: milli‑G units (1000 = 1 G)
-- `timestamped_angular_velocity_t`: `angle_t` units per second (0.05° precision)
-- `timestamped_magnet_t`: arbitrary units for magnetic flux density
-- `temperature_t` / `timestamped_temperature_t`: centi‑Kelvin
-- `range16_t` / `range32_t` and timestamped range structs: millimeters
-- `flow_translation_t` / `timestamped_flow_translation_t`: planar displacement + quality
-- `quaternion_t`, `euler_angle_t`, and timestamped orientation variants
+## Current Status
 
-### Angle System
-`angle_t` spans `[0, ANGLE_RANGE)` mapping linearly onto `[0°, 360°)`. Helper:
+This README is intentionally temporary.
 
-angle_t a = Inertia::Model::GetIntegerAngle(headingDegrees);
+What is in the repository today is a mixture of:
+- reusable data/model types
+- framework/task utilities
+- hardware-facing drivers
+- motion/orientation-related components
+- experiments and examples
 
-Rounding and wrap normalization are handled internally.
+Some parts are more stable than others, and some areas may still be renamed, moved, split, or removed.
 
-### Driver Interfaces
-- `ILifecycleDriver`: (`Start()`, `Stop()`). Basic driver lifecyle.
-- `IPeriodicDriver`: (`Step()`) extends `ILifecycleDriver`. Periodic update driver with lifecycle.
-- `IDataSource<T>`: (`GetData(T& out)` data retrieval interface, returns true when available.
+## Repository Layout
 
+Current top-level structure includes:
 
-### Variadic Driver Task Pattern
-A variadic task orchestrates periodic `Step()` calls and exposes multiple data sources:
-- Schedules `Step()` via `TaskScheduler`
-- Allows upcast to each `IDataSource<T>` matching declared payload types
-- Can be specialized using a published `TypeList` (partial specialization expands it)
+- `src/Framework` — scheduling/task-related framework code
+- `src/Drivers` — device/sensor driver code
+- `src/Components` — higher-level components such as AHRS-related functionality
+- `src/InertiaModel.h` — central model/data declarations
+- `src/InertiaDrivers.h` — driver-facing aggregation header
+- `src/InertiaTaskInstrumentation.h` — task instrumentation hooks/utilities
+- `Examples/` — example and testing sketches/projects
 
-### Publishing Type Packs
-Drivers publish supported payload sets with:
+This structure should be treated as provisional.
 
-using DataTypes = Variadic::TypeList<DataType1, DataType2>;
+## What Inertia Is Trying To Be
 
-This enables drop‑in task declarations without repeating each type.
+Inertia is evolving toward a modular foundation for embedded motion systems, including things like:
 
-### Driver Contract
-1. Define raw storage members for each output sample (timestamped struct)
-2. Implement `Start()` to configure hardware; return false on failure
-3. Implement `Step()` to populate cached samples atomically and set availability flag
-4. Implement one `GetData()` overload per exported type
-5. Publish `DataTypes` list for variadic task integration
+- sensor data acquisition
+- orientation / inertial processing
+- driver composition
+- task scheduling and instrumentation
+- reusable interfaces for robotics and vehicle-oriented projects
 
-### Adapting Existing Drivers (Type Remapping)
-Create an adapter inheriting `IPeriodicDriver` + new `IDataSource<NewType>` specializations. Convert source structs inside `GetData()` and publish a new `TypeList`. Example pattern:
+The exact packaging of those responsibilities is still being refined.
 
-template<class Base>
-class RemapAdapter : public IPeriodicDriver,
-                     public IDataSource<MyAccel>, public IDataSource<MyGyro> { /* ... */ };
+## Stability Notice
 
-Then use `VariadicDriverTask<RemapAdapter<Base>, RemapAdapter<Base>::DataTypes>`.
+Please assume the following may change without much notice while the library structure settles:
 
-### Scheduling Integration
-`DriverStepTask` and `VariadicDriverTask` internally derive from `TS::Task` (OO callbacks enabled). Period is specified in milliseconds.
+- namespaces
+- header names
+- folder layout
+- public interfaces
+- component boundaries
+- example organization
 
-### Error Handling & Availability
-`GetData()` returns `false` when no valid sample exists. Callers should guard reads and may choose to fall back or skip processing on failure.
+If you use the library early, expect some churn.
 
-### Performance Considerations
-- Integer scaling avoids float math in steady‑state reads.
-- Multiple inheritance for data sources has no runtime cost (compile‑time layout).
+## Examples
 
-### License & Attribution
-Hardware drivers may depend on vendor libraries (e.g., SparkFun LSM6DS3). Maintain upstream attribution in driver wrappers. Core Inertia code is intended for inclusion in embedded projects with minimal dependencies.
+There are examples in `Examples/`, including testing/profiling-oriented material.
 
-### Future Extensions
-- Additional fusion drivers (magnetometer + accelerometer + gyro)
-- Optional filtering stages with fixed‑point math
-
-  
+They are useful as implementation references, but they should not yet be treated as final API documentation.
