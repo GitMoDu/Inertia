@@ -201,7 +201,7 @@ namespace Inertia
 			}
 			else if (angle >= 360)
 			{
-				return GetIntegerAngle(fmodf(angle, 360.0f));
+				return GetIntegerAngle(static_cast<float>(fmodf(angle, 360.0f)));
 			}
 			else
 			{
@@ -210,6 +210,24 @@ namespace Inertia
 				return static_cast<angle_t>(((angle * FLOAT_RANGE) / 360.0f) + 0.5f);
 			}
 		}
+
+		static angle_t GetIntegerAngle(const int32_t angle)
+		{
+			if (angle < 0)
+			{
+				return ANGLE_RANGE - GetIntegerAngle(-angle);
+			}
+			else if (angle >= 360)
+			{
+				return GetIntegerAngle(angle % 360);
+			}
+			else
+			{
+				static constexpr float FLOAT_RANGE = float(ANGLE_RANGE);
+				return static_cast<angle_t>((angle * FLOAT_RANGE) / 360);
+			}
+		}
+
 	}
 }
 
