@@ -98,7 +98,6 @@
 #include "Components/Kinematic/PeriodicCalibratedFlow.h"
 #include "Components/Kinematic/VelocityEstimator.h"
 #include "Components/Kinematic/PeriodicAngleAwareAltitudeEstimator.h"
-#include "Components/FlightController/QuadController.h"
 
 
 #endif
