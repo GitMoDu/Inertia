@@ -28,7 +28,7 @@ namespace Inertia
 				/// <typeparam name="BleConnectedPin">The digital pin number used to read the BLE connection indicator.</typeparam>
 				template<uint8_t BleConnectedPin>
 				class WatchDogTask
-					: public Inertia::Model::IObserver<Inertia::Model::ConnectionEnum>
+					: public Inertia::Model::IObserver<Inertia::Components::Link::LinkStateStruct>
 					, public TS::Task
 				{
 				private:
@@ -56,7 +56,7 @@ namespace Inertia
 					uint8_t InstanceId = 0;
 
 				private:
-					Inertia::Model::ConnectionEnum LastConnectionState = Inertia::Model::ConnectionEnum::Disconnected;
+					Inertia::Components::Link::LinkEnum LastLinkState = Inertia::Components::Link::LinkEnum::NoLink;
 					StateEnum CurrentState = StateEnum::Disabled;
 
 				private:
@@ -74,10 +74,10 @@ namespace Inertia
 						{
 						case StateEnum::Checking:
 							// Only runs after DisconnectedTimeout.
-							if (LastConnectionState == Inertia::Model::ConnectionEnum::Disconnected
+							if (LastLinkState == Inertia::Components::Link::LinkEnum::NoLink
 								&& IsBleConnected())
 							{
-								// Attempt to restore the connection by restarting the driver.
+								// Attempt to restore the Link by restarting the driver.
 								Driver.Stop();
 								Driver.Start();
 								OnStuckStateDetected();
@@ -95,11 +95,11 @@ namespace Inertia
 						return true;
 					}
 
-					bool Setup(Inertia::Model::IObservable<Inertia::Model::ConnectionEnum>& observable)
+					bool Setup(Inertia::Model::IObservable<Inertia::Components::Link::LinkStateStruct>& observable)
 					{
 						pinMode(BleConnectedPin, PIN_INPUT_MODE);
 
-						LastConnectionState = Inertia::Model::ConnectionEnum::Disconnected;
+						LastLinkState = Inertia::Components::Link::LinkEnum::NoLink;
 						CurrentState = StateEnum::Disabled;
 
 						if (observable.SetObserver(this))
@@ -141,12 +141,12 @@ namespace Inertia
 						TS::Task::disable();
 					}
 
-					virtual void OnDataUpdate(const Inertia::Model::ConnectionEnum& connectionState) override
+					virtual void OnDataUpdate(const Inertia::Components::Link::LinkStateStruct& linkState) override
 					{
-						const bool disconnected = LastConnectionState == Inertia::Model::ConnectionEnum::Connected
-							&& connectionState == Inertia::Model::ConnectionEnum::Disconnected;
+						const bool disconnected = LastLinkState == Inertia::Components::Link::LinkEnum::Linked
+							&& linkState.State == Inertia::Components::Link::LinkEnum::NoLink;
 
-						LastConnectionState = connectionState;
+						LastLinkState = linkState.State;
 
 						switch (CurrentState)
 						{
@@ -158,7 +158,7 @@ namespace Inertia
 							}
 							break;
 						case StateEnum::Checking:
-							if (connectionState == Inertia::Model::ConnectionEnum::Connected)
+							if (linkState.State == Inertia::Components::Link::LinkEnum::Linked)
 							{
 								CurrentState = StateEnum::Idle;
 								TS::Task::disable();

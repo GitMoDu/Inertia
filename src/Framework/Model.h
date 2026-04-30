@@ -187,44 +187,6 @@ namespace Inertia
 			{}
 		};
 
-		namespace Connection
-		{
-			enum class ConnectionEnum : uint8_t
-			{
-				Disconnected = 0,
-				Connected = ((uint8_t)Disconnected) + 1
-			};
-
-			enum class ConnectingEnum : uint8_t
-			{
-				ScanningNew,
-				PairingNew,
-				ScanningExisting,
-			};
-
-			struct ConnectionCountersStruct
-			{
-				uint32_t RxBytes = 0;
-				uint32_t TxBytes = 0;
-				uint32_t RxCount = 0;
-				uint32_t TxCount = 0;
-				uint16_t RxError = 0;
-				uint16_t TxError = 0;
-
-				void Clear()
-				{
-					memset(this, 0, sizeof(ConnectionCountersStruct));
-				}
-			};
-
-			struct ConnectionSessionIdStruct
-			{
-				uint32_t SessionId;
-			};
-		}
-
-		using namespace Connection;
-
 
 		/// <summary>
 		/// Converts an angle in degrees to the integer angle representation used by the system, normalizing and rounding as needed.

@@ -48,6 +48,9 @@
 // UartInterface model.
 #include "Components/UartInterface/Model.h"
 
+// Link model.
+#include "Components/Link/Model.h"
+
 // AHRS model.
 #include "Components/Ahrs/Model.h"
 
