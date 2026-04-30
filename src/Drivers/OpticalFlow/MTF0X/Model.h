@@ -14,15 +14,6 @@ namespace Inertia
 			{
 				namespace Model
 				{
-					using ILifecycleDriver = Inertia::Model::ILifecycleDriver;
-
-					template<typename TData>
-					using IDataSource = Inertia::Model::IDataSource<TData>;
-
-					using range16_t = Inertia::Model::range16_t;
-					using timestamped_quality_flow_translation_t = Inertia::Model::timestamped_quality_flow_translation_t;
-					using timestamped_quality_range16_t = Inertia::Model::timestamped_quality_range16_t;
-
 					static constexpr uint32_t LOG_TAG = 4140776039;
 
 					enum class LogCodeEnum : uint8_t
@@ -33,6 +24,15 @@ namespace Inertia
 						ErrorPayloadCrc,
 						ErrorUnexpectedPayloadSize
 					};
+
+					using ILifecycleDriver = Inertia::Model::ILifecycleDriver;
+
+					template<typename TData>
+					using IDataSource = Inertia::Model::IDataSource<TData>;
+
+					using range16_t = Inertia::Model::range16_t;
+					using timestamped_quality_flow_translation_t = Inertia::Model::timestamped_quality_flow_translation_t;
+					using timestamped_quality_range16_t = Inertia::Model::timestamped_quality_range16_t;
 				}
 			}
 		}

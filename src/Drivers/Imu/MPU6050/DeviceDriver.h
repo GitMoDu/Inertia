@@ -1,8 +1,8 @@
 #ifndef _INERTIA_DRIVERS_IMU_MPU6050_DEVICE_DRIVER_h
 #define _INERTIA_DRIVERS_IMU_MPU6050_DEVICE_DRIVER_h
 
-#include "../../../Framework/Model.h"
-#include "../../I2c/I2cInterface.h"
+#include "Model.h"
+#include "../../HardwareInterface/I2c/I2cInterface.h"
 #include <Wire.h>
 
 namespace Inertia
@@ -44,7 +44,7 @@ namespace Inertia
 						static constexpr uint8_t RANGE_SHIFT = 3;
 						static constexpr uint8_t WHO_AM_I_MASK = 0x7E;
 						static constexpr uint8_t WHO_AM_I_EXPECTED = 0x68;
-					static constexpr uint32_t CLOCK_SPEED_I2C = 400000;
+						static constexpr uint32_t CLOCK_SPEED_I2C = 400000;
 
 
 					private:
@@ -135,7 +135,7 @@ namespace Inertia
 
 						bool WriteRegister(const uint8_t registerAddress, const uint8_t value)
 						{
-                        Inertia::Drivers::I2cInterface::SetClockIfSupported(WireInstance, CLOCK_SPEED_I2C);
+							Inertia::Drivers::HardwareInterface::I2c::Drivers::SetClockIfSupported(WireInstance, CLOCK_SPEED_I2C);
 							WireInstance.beginTransmission(Address);
 							WireInstance.write(registerAddress);
 							WireInstance.write(value);
@@ -144,7 +144,7 @@ namespace Inertia
 
 						bool ReadBytes(const uint8_t registerAddress, uint8_t* buffer, const uint8_t length)
 						{
-                        Inertia::Drivers::I2cInterface::SetClockIfSupported(WireInstance, CLOCK_SPEED_I2C);
+							Inertia::Drivers::HardwareInterface::I2c::Drivers::SetClockIfSupported(WireInstance, CLOCK_SPEED_I2C);
 							WireInstance.beginTransmission(Address);
 							WireInstance.write(registerAddress);
 							if (WireInstance.endTransmission(false) != 0)

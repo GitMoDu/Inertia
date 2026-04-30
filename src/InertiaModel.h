@@ -5,18 +5,24 @@
 #include "Framework/Model.h"
 #include "Framework/Interface.h"
 
-// Task profiler model and timer drivers.
+// Log model and buffer task.
+#include "Components/Log/Model.h"
+#include "Components/Log/BufferTask.h"
+
+// Task profiler model and sampling profiler task.
 #include "Components/TaskProfiler/Model.h"
 #include "Components/TaskProfiler/SamplingProfiler.h"
-#include "Components/TaskProfiler/SamplingTimers/RpPicoSamplingTimer.h"
-#include "Components/TaskProfiler/SamplingTimers/StmSamplingTimer.h"
-#include "Components/TaskProfiler/SamplingTimers/AvrSamplingTimer.h"
 
-// Generic driver task include.
+// Generic driver task for IPeriodicDriver implementations.
 #include "Components/Variadic/VariadicDriverTask.h"
 
-// Observable include.
+// Observable.
 #include "Components/Observable/MultiObservable.h"
+
+// Hardware interface models.
+#include "Components/HardwareInterface/Serial/Model.h"
+#include "Components/HardwareInterface/I2c/Model.h"
+#include "Components/HardwareInterface/Spi/Model.h"
 
 // Surface model include.
 #include "Components/Surface/Model.h"
@@ -25,29 +31,18 @@
 // Timestamp source include.
 #include "Components/Timestamp/MillisTimestampSource.h"
 
-// Storage model and components.
+// Storage allocation model and allocator.
 #include "Components/Storage/Allocation/Model.h"
 #include "Components/Storage/Allocation/Allocator.h"
+
+// FRAM storage model.
 #include "Components/Storage/Fram/Model.h"
-#include "Components/Storage/Fram/CircularStore.h"
-#include "Components/Storage/Fram/StructStore.h"
-#include "Components/Storage/LittleFs/CircularStore.h"
-#include "Components/Storage/LittleFs/StructStore.h"
 
-// Storage model and drivers for LittleFS on SPIFFS or built in flash.
-#include "Components/Storage/LittleFs/FileSystem.h"
+// LittleFS storage model.
+#include "Components/Storage/LittleFs/Model.h"
 
-// Log model and components.
-#include "Components/Log/Model.h"
-#include "Components/Log/BufferTask.h"
-#include "Components/Log/Repository/LittleFsLogRepository.h"
-#include "Components/Log/Repository/SerialOutRepository.h"
-#include "Components/Log/Repository/FramLogRepository.h"
-
-// Boot counter model and components.
+// Boot counter model.
 #include "Components/BootCounter/Model.h"
-#include "Components/BootCounter/Repository/NoBootCounterRepository.h"
-#include "Components/BootCounter/Repository/LittleFsBootCounterRepository.h"
 
 // UartInterface model.
 #include "Components/UartInterface/Model.h"
@@ -63,6 +58,14 @@
 #include "Components/Ahrs/Reefwing/Model.h"
 #include "Components/Ahrs/Reefwing/TemplateDriver.h"
 
+// Storage model for MB85RC FRAM variants.
+#include "Drivers/Storage/Fram/Mb85Rc/Model.h"
+
+// MPU6050 IMU sensor model.
+#include "Drivers/Imu/MPU6050/Model.h"
+
+// MTF-01/02 Optical Flow and Range sensor model.
+#include "Drivers/OpticalFlow/MTF0X/Model.h"
 
 
 #endif
