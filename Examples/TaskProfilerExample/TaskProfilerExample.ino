@@ -1,6 +1,6 @@
 /*
 * Task Profiler Example
-* 
+*
 * This example demonstrates how to use the Inertia TS::Task Profiler component,
 * to profile task execution in an Arduino application.
 * It sets up a sampling profiler that collects task execution samples at a specified rate
@@ -21,6 +21,7 @@
 
 #include <Arduino.h>
 #include <InertiaModel.h>
+#include <InertiaDrivers.h>
 
 #include "TemplateTask.h"
 #include "TaskTag.h"
@@ -32,13 +33,17 @@ static constexpr uint8_t SamplesPerMs = 25;
 // Task scheduler.
 TS::Scheduler SchedulerBase{};
 
+// Platform-specific sampling timer. Adjust SamplesPerMs and SamplingTimerChoice as needed for your platform and desired sampling rate.
 #if defined(ARDUINO_ARCH_AVR)
-static constexpr auto SamplingTimerChoice = Inertia::Components::TaskProfiler::SamplingTimers::AvrTimerEnum::Timer1ChannelA; // Use AVR Timer 1 Channel A for sampling.
-Inertia::Components::TaskProfiler::SamplingTimers::AvrSamplingTimer<SamplingTimerChoice> SamplingTimer{}; // Use internal AVR Timer 1 for sampling.
+static constexpr uint8_t SamplesPerMs = 5;
+static constexpr auto SamplingTimerChoice = Inertia::Drivers::TaskProfiler::SamplingTimers::AvrTimerEnum::Timer1ChannelA; // Use AVR Timer 1 Channel A for sampling.
+Inertia::Drivers::TaskProfiler::SamplingTimers::AvrSamplingTimer<SamplingTimerChoice> SamplingTimer{}; // Use internal AVR Timer 1 for sampling.
 #elif defined(ARDUINO_ARCH_RP2040)
-Inertia::Components::TaskProfiler::SamplingTimers::RpPicoSamplingTimer SamplingTimer{}; // Use internal RP2040 timer for sampling.
+static constexpr uint8_t SamplesPerMs = 100;
+Inertia::Drivers::TaskProfiler::SamplingTimers::RpPicoSamplingTimer SamplingTimer{}; // Use internal RP2040 timer for sampling.
 #elif defined(ARDUINO_ARCH_STM32)
-Inertia::Components::TaskProfiler::SamplingTimers::StmSamplingTimer SamplingTimer{}; // Use internal STM32 timer for sampling.
+static constexpr uint8_t SamplesPerMs = 100;
+Inertia::Drivers::TaskProfiler::SamplingTimers::StmSamplingTimer SamplingTimer{}; // Use internal STM32 timer for sampling.
 #else 
 #error "No sampling timer implementation available for this platform."
 #endif
@@ -64,7 +69,6 @@ void setup()
 	LongTask.Start();
 	ShortTask1.Start();
 	ShortTask2.Start();
-	//ShortTask3.Start();
 
 	Serial.println();
 	Serial.println();
