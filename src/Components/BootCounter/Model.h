@@ -4,6 +4,7 @@
 #include <IntegerSignal.h>
 
 #include "../../Framework/Model.h"
+#include "../../Components/Core/Lifecycle/Model.h"
 
 namespace Inertia
 {
@@ -22,7 +23,7 @@ namespace Inertia
 			/// <summary>
 			/// Interface for managing a boot counter repository.
 			/// </summary>
-			struct IBootCounterRepository : Inertia::Model::ILifecycleDriver
+			struct IBootCounterRepository : Inertia::Components::Lifecycle::ILifecycleDriver
 			{
 				~IBootCounterRepository() = default;
 

@@ -3,7 +3,6 @@
 
 // Framework model include.
 #include "Framework/Model.h"
-#include "Framework/Interface.h"
 
 // Log model and buffer task.
 #include "Components/Log/Model.h"
@@ -13,11 +12,13 @@
 #include "Components/TaskProfiler/Model.h"
 #include "Components/TaskProfiler/SamplingProfiler.h"
 
-// Generic driver task for IPeriodicDriver implementations.
-#include "Components/Variadic/VariadicDriverTask.h"
+// Data Source model and observable.
+#include "Components/Core/DataSource/Model.h"
+#include "Components/Core/DataSource/MultiObservable.h"
 
-// Observable.
-#include "Components/Observable/MultiObservable.h"
+// Lifecycle model and generic driver task.
+#include "Components/Core/Lifecycle/Model.h"
+#include "Components/Core/Lifecycle/VariadicDriverTask.h"
 
 // Hardware interface models.
 #include "Components/HardwareInterface/Serial/Model.h"

@@ -2,6 +2,7 @@
 #define _INERTIA_COMPONENTS_STORAGE_FRAM_h
 
 #include "../../../Framework/Model.h"
+#include "../../../Components/Core/Lifecycle/Model.h"
 
 namespace Inertia
 {
@@ -18,7 +19,7 @@ namespace Inertia
 					EnumCount
 				};
 
-				struct IFramDriver : Inertia::Model::ILifecycleDriver
+				struct IFramDriver : Inertia::Components::Lifecycle::ILifecycleDriver
 				{
 					~IFramDriver() = default;
 

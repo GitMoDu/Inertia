@@ -10,6 +10,9 @@
 
 #include "Model.h"
 
+#include "../../../Components/Core/DataSource/Model.h"
+#include "../../../Components/Core/Lifecycle/Model.h"
+
 namespace Inertia
 {
 	namespace Drivers
@@ -28,7 +31,7 @@ namespace Inertia
 				/// <typeparam name="BleConnectedPin">The digital pin number used to read the BLE connection indicator.</typeparam>
 				template<uint8_t BleConnectedPin>
 				class WatchDogTask
-					: public Inertia::Model::IObserver<Inertia::Components::Link::LinkStateStruct>
+					: public Inertia::Components::DataSource::IObserver<Inertia::Components::Link::LinkStateStruct>
 					, public TS::Task
 				{
 				private:
@@ -60,10 +63,10 @@ namespace Inertia
 					StateEnum CurrentState = StateEnum::Disabled;
 
 				private:
-					Inertia::Model::ILifecycleDriver& Driver;
+					Inertia::Components::Lifecycle::ILifecycleDriver& Driver;
 
 				public:
-					WatchDogTask(TS::Scheduler& scheduler, Inertia::Model::ILifecycleDriver& driver)
+					WatchDogTask(TS::Scheduler& scheduler, Inertia::Components::Lifecycle::ILifecycleDriver& driver)
 						: TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 						, Driver(driver)
 					{}

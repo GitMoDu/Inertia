@@ -1,10 +1,6 @@
 #ifndef _INERTIA_DRIVERS_INCLUDE_h
 #define _INERTIA_DRIVERS_INCLUDE_h
 
-// Framework model include.
-#include "Framework/Model.h"
-#include "Framework/Interface.h"
-
 // Task profiler timer drivers. Platform-specific timers that implement the ISamplingTimer interface.
 #include "Drivers/TaskProfiler/SamplingTimers/RpPicoSamplingTimer.h"
 #include "Drivers/TaskProfiler/SamplingTimers/StmSamplingTimer.h"

@@ -7,6 +7,9 @@
 #include "Model.h"
 #include "DeviceDriver.h"
 
+#include "../../../Components/Core/DataSource/Model.h"
+#include "../../../Components/Core/Lifecycle/Model.h"
+
 namespace Inertia
 {
 	namespace Drivers
@@ -17,16 +20,16 @@ namespace Inertia
 			{
 				template<typename SerialType,
 					uint8_t MaxReadBytes = 36>
-				class TaskDriver : public Model::ILifecycleDriver
-					, public Model::IDataSource<Model::timestamped_quality_flow_translation_t>
-					, public Model::IDataSource<Model::timestamped_quality_range16_t>
+				class TaskDriver : public Inertia::Components::Lifecycle::ILifecycleDriver
+					, public Inertia::Components::DataSource::IDataSource<Model::timestamped_quality_flow_translation_t>
+					, public Inertia::Components::DataSource::IDataSource<Model::timestamped_quality_range16_t>
 					, public TS::Task
 				{
 				public:
-                   static constexpr uint32_t WarningLogIntervalMillis = 1000;
+					static constexpr uint32_t WarningLogIntervalMillis = 1000;
 
 				public:
-					using DataTypes = Components::Variadic::VariadicDataTypeList<
+					using DataTypes = Inertia::Components::DataSource::Variadic::VariadicDataTypeList<
 						Model::timestamped_quality_flow_translation_t,
 						Model::timestamped_quality_range16_t>;
 
@@ -40,9 +43,9 @@ namespace Inertia
 
 				public:
 					TaskDriver(TS::Scheduler& scheduler, SerialType& serial_port)
-						: Model::ILifecycleDriver()
-						, Model::IDataSource<Model::timestamped_quality_flow_translation_t>()
-						, Model::IDataSource<Model::timestamped_quality_range16_t>()
+						: Inertia::Components::Lifecycle::ILifecycleDriver()
+						, Inertia::Components::DataSource::IDataSource<Model::timestamped_quality_flow_translation_t>()
+						, Inertia::Components::DataSource::IDataSource<Model::timestamped_quality_range16_t>()
 						, TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 						, SerialInstance(serial_port)
 					{}
@@ -111,7 +114,7 @@ namespace Inertia
 							&& SerialInstance.available()
 							&& LogListener != nullptr)
 						{
-                          const uint32_t now = millis();
+							const uint32_t now = millis();
 							if ((now - LastReadLimitWarningMillis) >= WarningLogIntervalMillis)
 							{
 								LastReadLimitWarningMillis = now;

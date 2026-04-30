@@ -4,7 +4,9 @@
 #define _TASK_OO_CALLBACKS
 #include <TSchedulerDeclarations.hpp>
 
-#include "../../../Framework/Interface.h"
+#include "../../../Framework/Model.h"
+#include "../../../Components/Core/Lifecycle/Model.h"
+#include "../../../Components/Core/DataSource/Model.h"
 
 // https://github.com/xioTechnologies/Fusion
 #ifdef __cplusplus
@@ -31,14 +33,14 @@ namespace Inertia
 				/// and AHRS aware angular velocity
 				/// by aggregating sensor data from acceleration, angular velocity, and magnetometer sources.
 				/// </summary>
-				class TemplateDriver : public Inertia::Model::IPeriodicDriver
+				class TemplateDriver : public Inertia::Components::Lifecycle::IPeriodicDriver
 					, public Inertia::Model::IDataSource<Inertia::Model::timestamped_euler_angle_t>
 					, public Inertia::Model::IDataSource<Inertia::Model::timestamped_quaternion_t>
 					, public Inertia::Model::IDataSource<Inertia::Model::timestamped_acceleration_t>
 					, public Inertia::Model::IDataSource<Inertia::Model::timestamped_angular_velocity_t>
 				{
 				public:
-					using DataTypes = Inertia::Components::Variadic::VariadicDataTypeList<
+					using DataTypes = Inertia::Components::DataSource::Variadic::VariadicDataTypeList<
 						Inertia::Model::timestamped_euler_angle_t,
 						Inertia::Model::timestamped_quaternion_t,
 						Inertia::Model::timestamped_acceleration_t,
@@ -88,7 +90,7 @@ namespace Inertia
 						Inertia::Model::IDataSource<Inertia::Model::timestamped_magnet_t>* magnetometerSource = nullptr,
 						const float gyroscopeRangeDegreesPerSecond = DefaultGyroscopeRangeDegreesPerSecond,
 						const float gain = fusionAhrsDefaultSettings.gain)
-						: Model::IPeriodicDriver()
+						: Inertia::Components::Lifecycle::IPeriodicDriver()
 						, AccelerationSource(accelerationSource)
 						, AngularVelocitySource(angularVelocitySource)
 						, MagnetometerSource(magnetometerSource)
@@ -356,7 +358,7 @@ namespace Inertia
 						return static_cast<float>(acceleration) * Model::G_PER_ACCELERATION_UNIT;
 					}
 
-					static constexpr int16_t ScaleAccelerationInverse(const float acceleration)
+					static int16_t ScaleAccelerationInverse(const float acceleration)
 					{
 						const float scaledValue = acceleration / Model::G_PER_ACCELERATION_UNIT;
 
@@ -377,7 +379,7 @@ namespace Inertia
 						return static_cast<float>(angularVelocity) * Model::DEG_PER_ANGLE_UNIT;
 					}
 
-					static constexpr int32_t ScaleAngularVelocityInverse(const float angularVelocity)
+					static int32_t ScaleAngularVelocityInverse(const float angularVelocity)
 					{
 						const float scaledValue = angularVelocity / Model::DEG_PER_ANGLE_UNIT;
 

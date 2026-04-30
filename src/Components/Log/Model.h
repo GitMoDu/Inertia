@@ -1,7 +1,7 @@
 #ifndef _INERTIA_COMPONENTS_LOG_MODEL_h
 #define _INERTIA_COMPONENTS_LOG_MODEL_h
 
-#include "../../Framework/Interface.h"
+#include "../../Components/Core/Lifecycle/Model.h"
 #include "../../Components/Timestamp/Model.h"
 
 namespace Inertia
@@ -91,7 +91,7 @@ namespace Inertia
 			/// <summary>
 			/// Interface for a log repository that manages storage and retrieval of log records with associated boot IDs and timestamps.
 			/// </summary>
-			struct ILogRepository : Inertia::Model::ILifecycleDriver
+			struct ILogRepository : Inertia::Components::Lifecycle::ILifecycleDriver
 			{
 				~ILogRepository() = default;
 

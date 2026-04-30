@@ -8,6 +8,10 @@
 #include <Stream.h>
 #include "DeviceDriver.h"
 
+
+#include "../../../Components/Core/DataSource/Model.h"
+#include "../../../Components/Core/Lifecycle/Model.h"
+
 namespace Inertia
 {
 	namespace Drivers
@@ -25,7 +29,7 @@ namespace Inertia
 				/// </summary>
 				/// <typeparam name="SerialType">The underlying serial communication type (e.g., HardwareSerial, SoftwareSerial) used to communicate with the VG6328A device.</typeparam>
 				template<typename SerialType>
-				class StreamDriver : public Inertia::Model::ILifecycleDriver
+				class StreamDriver : public Inertia::Components::Lifecycle::ILifecycleDriver
 					, public Stream
 				{
 				private:
@@ -41,7 +45,7 @@ namespace Inertia
 
 				public:
 					StreamDriver(SerialType& serial)
-						: Inertia::Model::ILifecycleDriver()
+						: Inertia::Components::Lifecycle::ILifecycleDriver()
 						, Stream()
 						, SerialInstance(serial)
 					{}

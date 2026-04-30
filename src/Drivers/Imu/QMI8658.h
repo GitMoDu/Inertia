@@ -2,10 +2,12 @@
 #define _INERTIA_DRIVERS_QMI8658_WRAPPER_h
 
 #if !defined(ARDUINO_ARCH_AVR)
-#include "../../Framework/Model.h"
 #include <QMI8658.h> // https://github.com/lahavg/QMI8658-Arduino-Library
 
-#include <IntegerSignal.h>
+
+#include "../../Framework/Model.h"
+#include "../../Components/Core/DataSource/Model.h"
+#include "../../Components/Core/Lifecycle/Model.h"
 
 
 namespace Inertia
@@ -69,13 +71,13 @@ namespace Inertia
 				AccelerometerSampleRateEnum accelerometerSampleRate = AccelerometerSampleRateEnum::SampleRate500Hz,
 				GyroscopeRangeEnum gyroscopeRange = GyroscopeRangeEnum::Range2048dps,
 				GyroscopeSampleRateEnum gyroscopeSampleRate = GyroscopeSampleRateEnum::SampleRate500Hz>
-			class TemplateDriver : public Model::IPeriodicDriver,
-				public Model::IDataSource<Model::timestamped_acceleration_t>,
-				public Model::IDataSource<Model::timestamped_angular_velocity_t>,
-				public Model::IDataSource<Model::timestamped_temperature_t>
+			class TemplateDriver : public Inertia::Components::Lifecycle::IPeriodicDriver,
+				public Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_acceleration_t>,
+				public Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_angular_velocity_t>,
+				public Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_temperature_t>
 			{
 			public:
-				using DataTypes = Inertia::Components::Variadic::VariadicDataTypeList<
+				using DataTypes = Inertia::Components::DataSource::Variadic::VariadicDataTypeList<
 					Inertia::Model::timestamped_acceleration_t,
 					Inertia::Model::timestamped_angular_velocity_t,
 					Inertia::Model::timestamped_temperature_t>;
@@ -95,10 +97,10 @@ namespace Inertia
 
 			public:
 				TemplateDriver(TwoWire& wire = Wire)
-					: Model::IPeriodicDriver()
-					, Model::IDataSource<Model::timestamped_acceleration_t>()
-					, Model::IDataSource<Model::timestamped_angular_velocity_t>()
-					, Model::IDataSource<Model::timestamped_temperature_t>()
+					: Inertia::Components::Lifecycle::IPeriodicDriver()
+					, Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_acceleration_t>()
+					, Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_angular_velocity_t>()
+					, Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_temperature_t>()
 					, WireInstance(wire) {}
 
 				bool GetData(Model::timestamped_acceleration_t& data) final

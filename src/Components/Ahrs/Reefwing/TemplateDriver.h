@@ -8,7 +8,9 @@
 #define _TASK_OO_CALLBACKS
 #include <TSchedulerDeclarations.hpp>
 
-#include "../../../Framework/Interface.h"
+#include "../../../Framework/Model.h"
+#include "../../../Components/Core/DataSource/Model.h"
+#include "../../../Components/Core/Lifecycle/Model.h"
 
 #include <ReefwingAHRS.h> // https://github.com/Reefwing-Software/Reefwing-AHRS
 
@@ -26,14 +28,14 @@ namespace Inertia
 				/// and AHRS aware angular velocity
 				/// by aggregating sensor data from acceleration, angular velocity, and magnetometer sources.
 				/// </summary>
-				class TemplateDriver : public Inertia::Model::IPeriodicDriver
+				class TemplateDriver : public Inertia::Components::Lifecycle::IPeriodicDriver
 					, public Inertia::Model::IDataSource<Inertia::Model::timestamped_euler_angle_t>
 					, public Inertia::Model::IDataSource<Inertia::Model::timestamped_quaternion_t>
 					, public Inertia::Model::IDataSource<Inertia::Model::timestamped_acceleration_t>
 					, public Inertia::Model::IDataSource<Inertia::Model::timestamped_angular_velocity_t>
 				{
 				public:
-					using DataTypes = Inertia::Components::Variadic::VariadicDataTypeList<
+					using DataTypes = Inertia::Components::DataSource::Variadic::VariadicDataTypeList<
 						Inertia::Model::timestamped_euler_angle_t,
 						Inertia::Model::timestamped_quaternion_t,
 						Inertia::Model::timestamped_acceleration_t,
@@ -84,7 +86,7 @@ namespace Inertia
 						Inertia::Model::IDataSource<Inertia::Model::timestamped_magnet_t>* magnetometerSource,
 						BoardType boardType,
 						ImuType imuType)
-						: Model::IPeriodicDriver()
+						: Inertia::Components::Lifecycle::IPeriodicDriver()
 						, AccelerationSource(accelerationSource)
 						, AngularVelocitySource(angularVelocitySource)
 						, MagnetometerSource(magnetometerSource)

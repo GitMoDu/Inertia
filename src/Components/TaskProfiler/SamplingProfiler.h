@@ -6,6 +6,8 @@
 
 #include "Model.h"
 
+#include "../../Components/Core/Lifecycle/Model.h"
+
 namespace Inertia
 {
 	namespace Components
@@ -16,7 +18,7 @@ namespace Inertia
 				uint8_t SamplesPerMillisecond
 			>
 			class SamplingProfiler
-				: public Inertia::Model::ILifecycleDriver
+				: public Inertia::Components::Lifecycle::ILifecycleDriver
 				, public IInterruptCallback
 				, public TS::Task
 			{
@@ -72,7 +74,9 @@ namespace Inertia
 				SamplingProfiler(TS::Scheduler& scheduler,
 					ISamplingTimer& samplingTimer,
 					IMeasureOutput* output = nullptr)
-					: TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
+					: Inertia::Components::Lifecycle::ILifecycleDriver()
+					, IInterruptCallback()
+					, TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 					, Scheduler(scheduler)
 					, SamplingTimer(samplingTimer)
 					, Output(output)

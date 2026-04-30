@@ -2,6 +2,8 @@
 #define _INERTIA_COMPONENTS_LINK_MODEL_h
 
 #include "../../Framework/Model.h"
+#include "../../Components/Core/Lifecycle/Model.h"
+#include "../../Components/Core/DataSource/Model.h"
 
 namespace Inertia
 {
@@ -55,9 +57,9 @@ namespace Inertia
 				}
 			};
 
-			struct ILinkDriver : public Inertia::Model::ILifecycleDriver
-				, public Inertia::Model::IObservable<LinkStateStruct>
-				, public Inertia::Model::IDataSource<LinkCountersStruct>
+			struct ILinkDriver : public Inertia::Components::Lifecycle::ILifecycleDriver
+				, public Inertia::Components::DataSource::IObservable<LinkStateStruct>
+				, public Inertia::Components::DataSource::IDataSource<LinkCountersStruct>
 			{
 				~ILinkDriver() = default;
 			};

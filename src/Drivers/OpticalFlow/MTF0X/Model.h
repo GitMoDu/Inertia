@@ -2,7 +2,7 @@
 #define _INERTIA_DRIVERS_OPTICAL_FLOW_MTF_0X_MODEL_h
 
 #include "../../../Framework/Model.h"
-#include "../../../Framework/Interface.h"
+#include "../../../Components/Core/Lifecycle/Model.h"
 
 namespace Inertia
 {
@@ -25,10 +25,10 @@ namespace Inertia
 						ErrorUnexpectedPayloadSize
 					};
 
-					using ILifecycleDriver = Inertia::Model::ILifecycleDriver;
+					using ILifecycleDriver = Inertia::Components::Lifecycle::ILifecycleDriver;
 
 					template<typename TData>
-					using IDataSource = Inertia::Model::IDataSource<TData>;
+					using IDataSource = Inertia::Components::DataSource::IDataSource<TData>;
 
 					using range16_t = Inertia::Model::range16_t;
 					using timestamped_quality_flow_translation_t = Inertia::Model::timestamped_quality_flow_translation_t;

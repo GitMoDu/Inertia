@@ -6,6 +6,7 @@
  || defined(ARDUINO_ARCH_ESP32)
 
 #include "../../../Components/Storage/LittleFs/Model.h"
+#include <LittleFS.h>
 
 namespace Inertia
 {
@@ -19,7 +20,7 @@ namespace Inertia
 
 				static bool PrepareFilesystem(Inertia::Model::ILogListener* logListener = nullptr, const uint8_t instanceId = 0)
 				{
-					if (!LittleFS.begin())
+					if (!::LittleFS.begin())
 					{
 						if (logListener != nullptr)
 							logListener->OnLog(Inertia::Model::LogEntryStruct{
@@ -29,7 +30,7 @@ namespace Inertia
 								.Code = static_cast<uint8_t>(LogCodeEnum::BeginFailed),
 								.Value = 0 });
 
-						if (!LittleFS.format())
+						if (!::LittleFS.format())
 						{
 							if (logListener != nullptr)
 								logListener->OnLog(Inertia::Model::LogEntryStruct{
@@ -41,7 +42,7 @@ namespace Inertia
 							return false;
 						}
 
-						if (!LittleFS.begin())
+						if (!::LittleFS.begin())
 						{
 							if (logListener != nullptr)
 								logListener->OnLog(Inertia::Model::LogEntryStruct{
@@ -79,7 +80,7 @@ namespace Inertia
 							.Value = 0 });
 				}
 
-				class FileSystem : public Inertia::Model::ILifecycleDriver
+				class FileSystem : public Inertia::Components::Lifecycle::ILifecycleDriver
 				{
 				public:
 					static FileSystem& GetStaticInstance()
@@ -96,7 +97,7 @@ namespace Inertia
 					bool Mounted = false;
 
 				public:
-					FileSystem() : Inertia::Model::ILifecycleDriver() {}
+					FileSystem() : Inertia::Components::Lifecycle::ILifecycleDriver() {}
 					~FileSystem() = default;
 
 					virtual bool Start() override

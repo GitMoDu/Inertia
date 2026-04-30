@@ -4,6 +4,9 @@
 #include "Model.h"
 #include "DeviceDriver.h"
 
+#include "../../../Components/Core/DataSource/Model.h"
+#include "../../../Components/Core/Lifecycle/Model.h"
+
 namespace Inertia
 {
 	namespace Drivers
@@ -30,13 +33,13 @@ namespace Inertia
 					DlpfModeEnum dlpfMode = DlpfModeEnum::Bw98,
 					uint32_t RecoveryTimeoutMillis = 10
 				>
-				class TemplateDriver : public Model::IPeriodicDriver,
-					public Model::IDataSource<Model::timestamped_acceleration_t>,
-					public Model::IDataSource<Model::timestamped_angular_velocity_t>,
-					public Model::IDataSource<Model::timestamped_temperature_t>
+				class TemplateDriver : public Inertia::Components::Lifecycle::IPeriodicDriver,
+					public Inertia::Components::DataSource::IDataSource<Model::timestamped_acceleration_t>,
+					public Inertia::Components::DataSource::IDataSource<Model::timestamped_angular_velocity_t>,
+					public Inertia::Components::DataSource::IDataSource<Model::timestamped_temperature_t>
 				{
 				public:
-					using DataTypes = Inertia::Components::Variadic::VariadicDataTypeList<
+					using DataTypes = Inertia::Components::DataSource::Variadic::VariadicDataTypeList<
 						Inertia::Model::timestamped_acceleration_t,
 						Inertia::Model::timestamped_angular_velocity_t,
 						Inertia::Model::timestamped_temperature_t>;
@@ -82,10 +85,10 @@ namespace Inertia
 
 				public:
 					TemplateDriver(WireType& wire = Wire)
-						: Model::IPeriodicDriver()
-						, Model::IDataSource<Model::timestamped_acceleration_t>()
-						, Model::IDataSource<Model::timestamped_angular_velocity_t>()
-						, Model::IDataSource<Model::timestamped_temperature_t>()
+						: Inertia::Components::Lifecycle::IPeriodicDriver()
+						, Inertia::Components::DataSource::IDataSource<Model::timestamped_acceleration_t>()
+						, Inertia::Components::DataSource::IDataSource<Model::timestamped_angular_velocity_t>()
+						, Inertia::Components::DataSource::IDataSource<Model::timestamped_temperature_t>()
 						, WireInstance(wire)
 						, DeviceDriver(wire, Address)
 						, AccelRange(accelerometerRange)
@@ -247,7 +250,7 @@ namespace Inertia
 									.Instance = InstanceId,
 									.Type = Inertia::Model::LogTypeEnum::Warning,
 									.Code = static_cast<uint8_t>(LogCodeEnum::RecoveryAttempt),
-									.Value = RecoveryCount 
+									.Value = RecoveryCount
 									});
 							}
 

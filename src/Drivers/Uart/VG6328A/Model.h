@@ -2,7 +2,6 @@
 #define _INERTIA_DRIVERS_UART_VG6328A_MODEL_h
 
 #include "../../../Framework/Model.h"
-#include "../../../Framework/Interface.h"
 
 namespace Inertia
 {
