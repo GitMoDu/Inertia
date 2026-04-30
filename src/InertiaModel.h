@@ -55,6 +55,27 @@
 // AHRS model.
 #include "Components/Ahrs/Model.h"
 
+// Control Theory models.
+#include "Components/Control/Pid/Model.h"
+
+// PowerTrain actuator model.
+#include "Components/PowerTrain/Model.h"
+
+// Servo model.
+#include "Components/PowerTrain/Servo/Model.h"
+
+// PWM model
+#include "Components/PowerTrain/Pwm/Model.h"
+
+
+// Servo actuator model, default calibration, and calibrated driver.
+#include "Components/PowerTrain/ServoActuator/Model.h"
+#include "Components/PowerTrain/ServoActuator/DefaultCalibration.h"
+#include "Components/PowerTrain/ServoActuator/CalibratedDriver.h"
+
+// PWM actuator model.
+#include "Components/PowerTrain/PwmActuator/Model.h"
+
 // Xio AHRS model and template driver.
 #include "Components/Ahrs/Xio/Model.h"
 #include "Components/Ahrs/Xio/TemplateDriver.h"
@@ -71,6 +92,13 @@
 
 // MTF-01/02 Optical Flow and Range sensor model.
 #include "Drivers/OpticalFlow/MTF0X/Model.h"
+
+// Kinematic model and components.
+#include "Components/Kinematic/Model.h"
+#include "Components/Kinematic/PeriodicCalibratedFlow.h"
+#include "Components/Kinematic/VelocityEstimator.h"
+#include "Components/Kinematic/PeriodicAngleAwareAltitudeEstimator.h"
+#include "Components/FlightController/QuadController.h"
 
 
 #endif

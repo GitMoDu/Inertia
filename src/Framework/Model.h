@@ -41,6 +41,38 @@ namespace Inertia
 			uint32_t timestamp; // in microseconds.
 		};
 
+		struct velocity_t
+		{
+			int32_t x; // In mm/s.
+			int32_t y; // In mm/s.
+		};
+
+		struct position_t
+		{
+			int32_t x; // In arbitrary unit, such as millimeters.
+			int32_t y; // In arbitrary unit, such as millimeters.
+		};
+
+		/// <summary>
+		/// Represents a 2D velocity measurement with an associated timestamp.
+		/// </summary>
+		struct timestamped_velocity_t : velocity_t
+		{
+			uint32_t timestamp; // in microseconds.
+		};
+
+		struct timestamped_position_t : position_t
+		{
+			uint32_t timestamp; // in microseconds.
+		};
+
+		// 0-255, representing the effort level, where 0 indicates no effort and 255 indicates maximum effort.
+		struct effort_t
+		{
+			//The specific interpretation of the effort value can be defined by the implementation.
+			uint8_t value;
+		};
+
 		static constexpr float G_PER_ACCELERATION_UNIT = 0.001f;
 
 		static constexpr float DEG_PER_ANGLE_UNIT = 360.0f / static_cast<float>(ANGLE_RANGE);

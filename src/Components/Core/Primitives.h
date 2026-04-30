@@ -5,10 +5,11 @@
 
 namespace Inertia
 {
+
 	namespace Model
 	{
 
-			
+
 	}
 }
 

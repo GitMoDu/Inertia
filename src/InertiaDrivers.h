@@ -45,4 +45,10 @@
 // Storage drivers for MB85RC FRAM variants.
 #include "Drivers/Storage/Fram/Mb85Rc/Mb85Rc256v.h"
 
+// Servo drivers for internal peripherals.
+#include "Drivers/Servo/RaspberryPiPico/SliceDriver.h"
+
+// PWM drivers for internal peripherals.
+#include "Drivers/Pwm/RaspberryPiPico/SliceDriver.h"
+
 #endif
