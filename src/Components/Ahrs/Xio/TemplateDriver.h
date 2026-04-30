@@ -395,16 +395,9 @@ namespace Inertia
 
 					static constexpr bool HasAccelerationSource(const SensorModeEnum sensorMode)
 					{
-						switch (sensorMode)
-						{
-						case SensorModeEnum::AccelerometerOnly:
-						case SensorModeEnum::AccelerometerAndGyroscope:
-						case SensorModeEnum::AccelerometerGyroscopeAndMagnetometer:
-							return true;
-
-						default:
-							return false;
-						}
+						return (sensorMode == SensorModeEnum::AccelerometerOnly)
+							|| (sensorMode == SensorModeEnum::AccelerometerAndGyroscope)
+							|| (sensorMode == SensorModeEnum::AccelerometerGyroscopeAndMagnetometer);
 					}
 
 					constexpr bool HasAccelerationSource() const
@@ -414,16 +407,9 @@ namespace Inertia
 
 					static constexpr bool HasAngularVelocitySource(const SensorModeEnum sensorMode)
 					{
-						switch (sensorMode)
-						{
-						case SensorModeEnum::GyroscopeOnly:
-						case SensorModeEnum::AccelerometerAndGyroscope:
-						case SensorModeEnum::AccelerometerGyroscopeAndMagnetometer:
-							return true;
-
-						default:
-							return false;
-						}
+						return (sensorMode == SensorModeEnum::GyroscopeOnly)
+							|| (sensorMode == SensorModeEnum::AccelerometerAndGyroscope)
+							|| (sensorMode == SensorModeEnum::AccelerometerGyroscopeAndMagnetometer);
 					}
 
 					constexpr bool HasAngularVelocitySource() const
