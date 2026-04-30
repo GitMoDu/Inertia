@@ -169,10 +169,21 @@ namespace Inertia
 		{
 			uint32_t timestamp;
 			uint16_t overflows;
+
+			overflow_timestamp16_t(const uint32_t timestamp, const uint16_t overflows)
+				: timestamp(timestamp)
+				, overflows(overflows)
+			{
+
+			}
 		};
 
 		struct millis_timestamp_t : overflow_timestamp16_t
 		{
+			millis_timestamp_t(const uint32_t timestamp, const uint16_t overflows)
+				: overflow_timestamp16_t(timestamp, overflows)
+			{}
+
 			uint32_t GetSeconds() const
 			{
 				// 2^32 / 1000 = 4294967.296 seconds. 

@@ -83,11 +83,9 @@ namespace Inertia
 
 					LastCheckTimestamp = currentTimestamp;
 
-					return Inertia::Model::millis_timestamp_t{
-						Inertia::Model::overflow_timestamp16_t{
-						.timestamp = currentTimestamp,
-						.overflows = OverflowCount}
-					};
+					return Inertia::Model::millis_timestamp_t(
+						currentTimestamp,
+						OverflowCount);
 				}
 			};
 		}
