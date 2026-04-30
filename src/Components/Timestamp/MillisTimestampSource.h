@@ -8,7 +8,7 @@
 #include <Arduino.h>
 #endif
 
-#include "../../Framework/Interface.h"
+#include "Model.h"
 
 namespace Inertia
 {
@@ -16,7 +16,7 @@ namespace Inertia
 	{
 		namespace Timestamp
 		{
-			struct MillisTimestampSource : public Inertia::Model::IMillisTimestampSource
+			struct MillisTimestampSource : public IMillisTimestampSource
 				, public TS::Task
 			{
 			private:
@@ -37,7 +37,7 @@ namespace Inertia
 
 			public:
 				MillisTimestampSource()
-					: Inertia::Model::IMillisTimestampSource()
+					: IMillisTimestampSource()
 					, TS::Task(TASK_IMMEDIATE, TASK_FOREVER, nullptr, false)
 				{}
 
@@ -70,7 +70,7 @@ namespace Inertia
 					return true;
 				}
 
-				virtual Inertia::Model::millis_timestamp_t GetMillisTimestamp() override
+				virtual millis_timestamp_t GetMillisTimestamp() override
 				{
 					const uint32_t currentTimestamp = millis() - BootTimestamp;
 
@@ -83,7 +83,7 @@ namespace Inertia
 
 					LastCheckTimestamp = currentTimestamp;
 
-					return Inertia::Model::millis_timestamp_t(
+					return millis_timestamp_t(
 						currentTimestamp,
 						OverflowCount);
 				}

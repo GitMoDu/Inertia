@@ -6,6 +6,7 @@
 #endif
 #include <Fletcher16.h>
 #include "../../../Components/Log/Model.h"
+#include "../../../Components/Timestamp/Model.h"
 #include "../../Storage/Fram/CircularStore.h"
 
 namespace Inertia
@@ -16,17 +17,15 @@ namespace Inertia
 		{
 			namespace Repository
 			{
-				using namespace Inertia::Components::Log;
-
 				template<uint32_t MaxCapacity = 256, uint16_t TBaseAddress = 0>
 				class FramLogRepository
-					: public Inertia::Model::ILogRepository
+					: public Inertia::Components::Log::ILogRepository
 				{
 				private:
 					static constexpr uint16_t StoreVersion = 1;
 
 					using Store = Inertia::Drivers::Storage::Fram::CircularStore<
-						Inertia::Model::LogRecordStruct,
+						Inertia::Components::Log::LogRecordStruct,
 						MaxCapacity,
 						StoreVersion,
 						TBaseAddress>;
@@ -43,7 +42,7 @@ namespace Inertia
 
 				public:
 					explicit FramLogRepository(Inertia::Components::Storage::Fram::IFramDriver& driver)
-						: Inertia::Model::ILogRepository()
+						: Inertia::Components::Log::ILogRepository()
 						, FileStore(driver)
 					{}
 
@@ -56,8 +55,8 @@ namespace Inertia
 
 						if (FileStore.GetCount() > 0)
 						{
-							Inertia::Model::LogRecordStruct oldest{};
-							Inertia::Model::LogRecordStruct newest{};
+							Inertia::Components::Log::LogRecordStruct oldest{};
+							Inertia::Components::Log::LogRecordStruct newest{};
 							const uint32_t count = FileStore.GetCount();
 
 							const bool ok =
@@ -90,12 +89,12 @@ namespace Inertia
 					}
 
 					bool AddEntry(const uint32_t bootId,
-						const Inertia::Model::millis_timestamp_t& timestamp,
+						const Inertia::Components::Timestamp::millis_timestamp_t& timestamp,
 						const Inertia::Model::LogEntryStruct& logEntry) override
 					{
 						if (!Started) { return false; }
 
-						Inertia::Model::LogRecordStruct record{};
+						Inertia::Components::Log::LogRecordStruct record{};
 						static_cast<Inertia::Model::LogEntryStruct&>(record) = logEntry;
 						record.RecordId = NextRecordId;
 						record.BootId = bootId;
@@ -110,7 +109,7 @@ namespace Inertia
 					}
 
 					bool GetRecordAt(const size_t index,
-						Inertia::Model::LogRecordStruct& logRecord) override
+						Inertia::Components::Log::LogRecordStruct& logRecord) override
 					{
 						if (!Started || index >= FileStore.GetCount()) { return false; }
 						return FileStore.Read(static_cast<uint32_t>(index), logRecord);
@@ -149,13 +148,13 @@ namespace Inertia
 					static constexpr size_t GetStoreSize() { return UsedSize; }
 
 				private:
-					bool IsValidRecord(const Inertia::Model::LogRecordStruct& record)
+					bool IsValidRecord(const Inertia::Components::Log::LogRecordStruct& record)
 					{
 						return record.RecordId != 0
 							&& ComputeRecordCrc(record) == record.Crc;
 					}
 
-					uint16_t ComputeRecordCrc(const Inertia::Model::LogRecordStruct& record)
+					uint16_t ComputeRecordCrc(const Inertia::Components::Log::LogRecordStruct& record)
 					{
 						Hasher.begin();
 						Hasher.add(static_cast<uint8_t>(Inertia::Components::Log::ENTRY_CRC_SEED));
@@ -164,8 +163,8 @@ namespace Inertia
 						Hasher.add(static_cast<uint8_t>(Inertia::Components::Log::ENTRY_CRC_SEED >> 24));
 						Hasher.add(
 							reinterpret_cast<const uint8_t*>(&record),
-							sizeof(Inertia::Model::LogRecordStruct)
-							- sizeof(Inertia::Model::LogRecordStruct::Crc));
+							sizeof(Inertia::Components::Log::LogRecordStruct)
+							- sizeof(Inertia::Components::Log::LogRecordStruct::Crc));
 						return Hasher.getFletcher();
 					}
 				};

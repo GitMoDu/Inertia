@@ -14,11 +14,11 @@ namespace Inertia
 				using namespace Inertia::Components::BootCounter;
 
 				class NoBootCounterRepository
-					: public Inertia::Model::IBootCounterRepository
+					: public Inertia::Components::BootCounter::IBootCounterRepository
 				{
 				public:
 					NoBootCounterRepository()
-						: Inertia::Model::IBootCounterRepository()
+						: Inertia::Components::BootCounter::IBootCounterRepository()
 					{}
 
 					bool Start() override

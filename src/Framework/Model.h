@@ -173,39 +173,18 @@ namespace Inertia
 			overflow_timestamp16_t(const uint32_t timestamp, const uint16_t overflows)
 				: timestamp(timestamp)
 				, overflows(overflows)
-			{
-
-			}
-		};
-
-		struct millis_timestamp_t : overflow_timestamp16_t
-		{
-			millis_timestamp_t(const uint32_t timestamp, const uint16_t overflows)
-				: overflow_timestamp16_t(timestamp, overflows)
 			{}
-
-			uint32_t GetSeconds() const
-			{
-				// 2^32 / 1000 = 4294967.296 seconds. 
-				// We use 64-bit math to avoid losing the .296ms precision per overflow
-				return static_cast<uint32_t>(GetFullTimestamp() / 1000);
-			}
-
-			uint32_t GetMilliseconds() const
-			{
-				return timestamp;
-			}
-
-			uint64_t GetFullTimestamp() const
-			{
-				return (static_cast<uint64_t>(overflows) << 32) + timestamp;
-			}
 		};
 
 		struct overflow_timestamp32_t
 		{
 			uint32_t timestamp;
 			uint32_t overflows;
+
+			overflow_timestamp32_t(const uint32_t timestamp, const uint32_t overflows)
+				: timestamp(timestamp)
+				, overflows(overflows)
+			{}
 		};
 
 		namespace Connection
@@ -246,69 +225,6 @@ namespace Inertia
 
 		using namespace Connection;
 
-
-		namespace Log
-		{
-			/// <summary>
-			/// Defines the types/levels of log messages.
-			/// </summary>
-			enum class LogTypeEnum : uint8_t
-			{
-				Debug,
-				Info,
-				Warning,
-				Error
-			};
-
-			struct LogEntryStruct
-			{
-				// Source tag. Uniquely identifies the source or category of the log entry, such as a specific module, component, or subsystem. 
-				// This allows for categorization and filtering of log entries based on their origin.
-				uint32_t Tag;
-
-				// Source instance Id. This allows for distinguishing between multiple instances of the same source type, 
-				// such as multiple sensors of the same mode.
-				uint8_t Instance;
-
-				// uint8_t type. Defines the type or severity level of the log entry: debug, info, warning, or error.
-				LogTypeEnum Type;
-
-				// Code. User-defined code that indicates specific events, error codes, or state changes within the source.
-				uint8_t Code;
-
-				// Value. Can provide additional information relevant to the log entry.
-				uint8_t Value;
-			};
-
-			static constexpr size_t LogEntrySize = sizeof(LogEntryStruct);
-			static_assert(sizeof(LogTypeEnum) == sizeof(uint8_t), "LogTypeEnum must remain one byte.");
-			static_assert(LogEntrySize == 8, "LogEntryStruct wire size changed.");
-
-			struct LogRecordStruct : LogEntryStruct
-			{
-				// Rolling record ID to uniquely identify each log entry and 
-				// allow for tracking the order of log entries, even across sessions and reboots.
-				uint32_t RecordId;
-
-				// Boot ID to correlate log entries within the same session, 
-				// allowing for grouping and analysis of logs based on sessions.
-				uint32_t BootId;
-
-				// Boot timestamp in milliseconds, with overflow count to allow for extended uptime tracking.
-				// The timestamp represents the time since the system booted, and is used to correlate log entries with system uptime and events.
-				uint32_t TimestampMillis;
-				uint16_t TimestampOverflows;
-
-				// Internal CRC for the log record, calculated over the entire record except for the CRC field itself. 
-				// This allows for integrity verification of log records when stored or transmitted.
-				uint16_t Crc;
-			};
-
-			static constexpr size_t LogRecordSize = sizeof(LogRecordStruct);
-			static_assert(LogRecordSize == 24, "LogRecordStruct wire size changed.");
-		}
-
-		using namespace Log;
 
 		/// <summary>
 		/// Converts an angle in degrees to the integer angle representation used by the system, normalizing and rounding as needed.

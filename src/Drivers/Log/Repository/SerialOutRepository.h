@@ -1,9 +1,11 @@
 #ifndef _INERTIA_COMPONENTS_LOG_REPOSITORY_SERIAL_OUT_REPOSITORY_h
 #define _INERTIA_COMPONENTS_LOG_REPOSITORY_SERIAL_OUT_REPOSITORY_h
 
-#include <Stream.h>
 
 #include "../../../Components/Log/Model.h"
+#include "../../../Components/Timestamp/Model.h"
+
+#include <Stream.h>
 
 namespace Inertia
 {
@@ -16,14 +18,14 @@ namespace Inertia
 				using namespace Inertia::Components::Log;
 
 				class SerialOutRepository
-					: public Inertia::Model::ILogRepository
+					: public Inertia::Components::Log::ILogRepository
 				{
 				private:
 					Stream& SerialOut;
 
 				public:
 					SerialOutRepository(Stream& serial)
-						: Inertia::Model::ILogRepository()
+						: Inertia::Components::Log::ILogRepository()
 						, SerialOut(serial)
 					{}
 
@@ -39,7 +41,7 @@ namespace Inertia
 						// No-op.
 					}
 
-					bool AddEntry(const uint32_t /*bootId*/, const Inertia::Model::millis_timestamp_t& timestamp, const Inertia::Model::LogEntryStruct& logEntry) override
+					bool AddEntry(const uint32_t /*bootId*/, const Inertia::Components::Timestamp::millis_timestamp_t& timestamp, const Inertia::Model::LogEntryStruct& logEntry) override
 					{
 						if (SerialOut.availableForWrite() == 0)
 						{
@@ -79,7 +81,7 @@ namespace Inertia
 					/// </summary>
 					/// <param name="logRecord">An output parameter that will be populated with the retrieved log record data.</param>
 					/// <returns>True if a log record was successfully retrieved; otherwise, false.</returns>
-					virtual bool GetRecordAt(const size_t index, Inertia::Model::LogRecordStruct& logRecord) override
+					virtual bool GetRecordAt(const size_t index, Inertia::Components::Log::LogRecordStruct& logRecord) override
 					{
 						(void)index;
 						(void)logRecord;

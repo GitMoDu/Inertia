@@ -8,7 +8,7 @@
 #include <Arduino.h>
 #endif
 #include "Model.h"
-#include "../Timestamp/MillisTimestampSource.h"
+#include "../Timestamp/Model.h"
 
 namespace Inertia
 {
@@ -43,8 +43,8 @@ namespace Inertia
 				uint32_t BootId = 0;
 
 			private:
-				Inertia::Model::ILogRepository& LogRepository;
-				Inertia::Model::IMillisTimestampSource& TimestampSource;
+				Inertia::Components::Log::ILogRepository& LogRepository;
+				Inertia::Components::Timestamp::IMillisTimestampSource& TimestampSource;
 
 				BufferedLogEntryStruct Buffer[BufferSize]{};
 				size_t Head = 0;
@@ -54,8 +54,8 @@ namespace Inertia
 
 			public:
 				BufferTask(TS::Scheduler& scheduler,
-					Inertia::Model::IMillisTimestampSource& timestampSource,
-					Inertia::Model::ILogRepository& logRepository)
+					Inertia::Components::Timestamp::IMillisTimestampSource& timestampSource,
+					Inertia::Components::Log::ILogRepository& logRepository)
 					: TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 					, LogRepository(logRepository)
 					, TimestampSource(timestampSource)
@@ -75,7 +75,7 @@ namespace Inertia
 						const auto& bufferedLog = Buffer[Tail];
 						const uint32_t currentMillis = millis();
 
-						Inertia::Model::millis_timestamp_t timestamp = TimestampSource.GetMillisTimestamp();
+						Inertia::Components::Timestamp::millis_timestamp_t timestamp = TimestampSource.GetMillisTimestamp();
 						// Offset the millis timestamp with the entry timestamp.
 						const uint32_t previous = timestamp.timestamp;
 						timestamp.timestamp -= (currentMillis - bufferedLog.Timestamp);

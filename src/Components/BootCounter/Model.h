@@ -18,6 +18,16 @@ namespace Inertia
 				Booted,
 				ErrorNoCounterSource
 			};
+
+			/// <summary>
+			/// Interface for managing a boot counter repository.
+			/// </summary>
+			struct IBootCounterRepository : Inertia::Model::ILifecycleDriver
+			{
+				~IBootCounterRepository() = default;
+
+				virtual uint32_t GetCounter() = 0;
+			};
 		}
 	}
 }

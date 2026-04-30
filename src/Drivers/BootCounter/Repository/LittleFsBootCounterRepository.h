@@ -16,10 +16,8 @@ namespace Inertia
 		{
 			namespace Repository
 			{
-				using namespace Inertia::Components::BootCounter;
-
 				class LittleFsBootCounterRepository
-					: public Inertia::Model::IBootCounterRepository
+					: public Inertia::Components::BootCounter::IBootCounterRepository
 				{
 				private:
 					struct stored_boot_count_t
@@ -35,7 +33,7 @@ namespace Inertia
 
 				public:
 					explicit LittleFsBootCounterRepository(const char* path = "/boot-count.bin")
-						: Inertia::Model::IBootCounterRepository()
+						: Inertia::Components::BootCounter::IBootCounterRepository()
 						, FileStore(path)
 					{}
 

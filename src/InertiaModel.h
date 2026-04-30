@@ -29,6 +29,7 @@
 #include "Components/Surface/ValuePack.h"
 
 // Timestamp source include.
+#include "Components/Timestamp/Model.h"
 #include "Components/Timestamp/MillisTimestampSource.h"
 
 // Storage allocation model and allocator.
