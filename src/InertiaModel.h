@@ -99,5 +99,8 @@
 #include "Components/Kinematic/VelocityEstimator.h"
 #include "Components/Kinematic/PeriodicAngleAwareAltitudeEstimator.h"
 
+// Component based assemblies.
+#include "Assemblies/FlightController/QuadController.h"
+
 
 #endif
