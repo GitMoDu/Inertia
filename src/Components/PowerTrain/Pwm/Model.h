@@ -27,6 +27,16 @@ namespace Inertia
 						? maxLevel
 						: static_cast<uint16_t>(level);
 				}
+
+				struct IPwmDriver
+				{
+					~IPwmDriver() = default;
+
+					virtual bool SetPwm(const uint8_t index, const uint16_t level, const bool enabled) = 0;
+
+					virtual uint8_t GetPwmCount() const = 0;
+					virtual uint16_t GetPwmRange() const = 0;
+				};
 			}
 		}
 	}

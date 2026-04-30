@@ -96,7 +96,7 @@ namespace Inertia
 										.Tag = LOG_TAG,
 										.Instance = InstanceId,
 										.Type = Inertia::Model::LogTypeEnum::Warning,
-										.Code = LogCodeEnum::CalibrationLoadFailed,
+										.Code = Inertia::Components::PowerTrain::Servo::LogCodeEnum::CalibrationLoadFailed,
 										.Value = i // Log the index of the servo for which calibration load failed, to help with troubleshooting
 										});
 
@@ -110,7 +110,7 @@ namespace Inertia
 											.Tag = LOG_TAG,
 											.Instance = InstanceId,
 											.Type = Inertia::Model::LogTypeEnum::Error,
-											.Code = LogCodeEnum::CalibrationSaveFailed,
+											.Code = Inertia::Components::PowerTrain::Servo::LogCodeEnum::CalibrationSaveFailed,
 											.Value = i // Log the index of the servo for which calibration save failed, to help with troubleshooting
 											});
 								}
@@ -168,7 +168,7 @@ namespace Inertia
 									.Tag = LOG_TAG,
 									.Instance = InstanceId,
 									.Type = Inertia::Model::LogTypeEnum::Error,
-									.Code = LogCodeEnum::ServoSetFailed,
+									.Code = Inertia::Components::PowerTrain::Servo::LogCodeEnum::ServoSetFailed,
 									.Value = index // Log the index of the servo for which the set command failed, to help with troubleshooting
 									});
 

@@ -16,7 +16,9 @@ namespace Inertia
 
 				enum class LogCodeEnum : uint8_t
 				{
-					EnumCount
+					CalibrationLoadFailed,
+					CalibrationSaveFailed,
+					ServoSetFailed
 				};
 
 				static const uint32_t MAX_NANOS = 2000000;
