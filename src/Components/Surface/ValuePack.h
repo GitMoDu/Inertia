@@ -34,46 +34,29 @@ namespace Inertia
 					static constexpr int16_t SignedMax = 2047;
 
 					template<uint8_t ValueIndex>
+					struct IsEvenValueIndex
+					{
+						using type = typename IntegerSignal::TypeTraits::TypeConditional::conditional_type<
+							IntegerSignal::TypeTraits::TypeDispatch::TrueType,
+							IntegerSignal::TypeTraits::TypeDispatch::FalseType,
+							((ValueIndex & 1) == 0)>::type;
+					};
+
+					template<uint8_t ValueIndex>
 					uint16_t GetRaw() const
 					{
 						static_assert(ValueIndex < 4, "ValueIndex must be between 0 and 3.");
 
-						constexpr uint8_t byteIndex = (ValueIndex * 3) / 2;
-
-						if constexpr ((ValueIndex & 1) == 0)
-						{
-							return (static_cast<uint16_t>(Data[byteIndex]) << 4)
-								| static_cast<uint16_t>(Data[byteIndex + 1] >> 4);
-						}
-						else
-						{
-							return (static_cast<uint16_t>(Data[byteIndex] & 0x0F) << 8)
-								| static_cast<uint16_t>(Data[byteIndex + 1]);
-						}
+						return GetRawImpl<ValueIndex>(typename IsEvenValueIndex<ValueIndex>::type());
 					}
 
 					template<uint8_t ValueIndex>
 					void SetRaw(const uint16_t value)
 					{
 						static_assert(ValueIndex < 4, "ValueIndex must be between 0 and 3.");
-
-						constexpr uint8_t byteIndex = (ValueIndex * 3) / 2;
 						const uint16_t packed = IntegerSignal::LimitValue<uint16_t, 0, RawMax>(value);
 
-						if constexpr ((ValueIndex & 1) == 0)
-						{
-							Data[byteIndex] = static_cast<uint8_t>(packed >> 4);
-							Data[byteIndex + 1] = static_cast<uint8_t>(
-								(Data[byteIndex + 1] & 0x0F)
-								| ((packed & 0x000F) << 4));
-						}
-						else
-						{
-							Data[byteIndex] = static_cast<uint8_t>(
-								(Data[byteIndex] & 0xF0)
-								| ((packed >> 8) & 0x0F));
-							Data[byteIndex + 1] = static_cast<uint8_t>(packed & 0x00FF);
-						}
+						SetRawImpl<ValueIndex>(packed, typename IsEvenValueIndex<ValueIndex>::type());
 					}
 
 					template<uint8_t ValueIndex>
@@ -97,10 +80,46 @@ namespace Inertia
 					template<uint8_t ValueIndex>
 					void SetSigned(const int16_t value)
 					{
-						SetUnsigned<ValueIndex>(PackSigned12(value));
+                        SetUnsigned<ValueIndex>(PackSigned12(value));
 					}
 
 				private:
+					template<uint8_t ValueIndex>
+					uint16_t GetRawImpl(IntegerSignal::TypeTraits::TypeDispatch::TrueType) const
+					{
+						constexpr uint8_t byteIndex = (ValueIndex * 3) / 2;
+						return (static_cast<uint16_t>(Data[byteIndex]) << 4)
+							| static_cast<uint16_t>(Data[byteIndex + 1] >> 4);
+					}
+
+					template<uint8_t ValueIndex>
+					uint16_t GetRawImpl(IntegerSignal::TypeTraits::TypeDispatch::FalseType) const
+					{
+						constexpr uint8_t byteIndex = (ValueIndex * 3) / 2;
+						return (static_cast<uint16_t>(Data[byteIndex] & 0x0F) << 8)
+							| static_cast<uint16_t>(Data[byteIndex + 1]);
+					}
+
+					template<uint8_t ValueIndex>
+					void SetRawImpl(const uint16_t packed, IntegerSignal::TypeTraits::TypeDispatch::TrueType)
+					{
+						constexpr uint8_t byteIndex = (ValueIndex * 3) / 2;
+						Data[byteIndex] = static_cast<uint8_t>(packed >> 4);
+						Data[byteIndex + 1] = static_cast<uint8_t>(
+							(Data[byteIndex + 1] & 0x0F)
+							| ((packed & 0x000F) << 4));
+					}
+
+					template<uint8_t ValueIndex>
+					void SetRawImpl(const uint16_t packed, IntegerSignal::TypeTraits::TypeDispatch::FalseType)
+					{
+						constexpr uint8_t byteIndex = (ValueIndex * 3) / 2;
+						Data[byteIndex] = static_cast<uint8_t>(
+							(Data[byteIndex] & 0xF0)
+							| ((packed >> 8) & 0x0F));
+						Data[byteIndex + 1] = static_cast<uint8_t>(packed & 0x00FF);
+					}
+
 					static int16_t SignExtend12(const uint16_t value)
 					{
 						return (value & 0x0800u) != 0
@@ -226,38 +245,43 @@ namespace Inertia
 				{
 					using packed_t = raw_t;
 					using unpacked_t = value_t;
+					using sign_dispatch_t = typename IntegerSignal::TypeTraits::TypeSign::IsUnsignedType<unpacked_t>::type;
 
 					static_assert(MaxValue >= MinValue, "MaxValue must be greater than or equal to MinValue.");
 
 					static unpacked_t Decode(const packed_t value)
 					{
 						const packed_t limited = IntegerSignal::LimitValue<packed_t, 0, RawMaxValue>(value);
-
-						if constexpr (MinValue < static_cast<unpacked_t>(0))
-						{
-							return SignExtend(limited);
-						}
-						else
-						{
-							return static_cast<unpacked_t>(limited);
-						}
+						return DecodeImpl(limited, sign_dispatch_t());
 					}
 
 					static packed_t Encode(const unpacked_t value)
 					{
 						const unpacked_t limited = IntegerSignal::LimitValue<unpacked_t, MinValue, MaxValue>(value);
-
-						if constexpr (MinValue < static_cast<unpacked_t>(0))
-						{
-							return static_cast<packed_t>(static_cast<packed_t>(limited) & RawMaxValue);
-						}
-						else
-						{
-							return IntegerSignal::LimitValue<packed_t, 0, RawMaxValue>(static_cast<packed_t>(limited));
-						}
+						return EncodeImpl(limited, sign_dispatch_t());
 					}
 
-				private:
+                private:
+					static unpacked_t DecodeImpl(const packed_t value, IntegerSignal::TypeTraits::TypeDispatch::TrueType)
+					{
+						return static_cast<unpacked_t>(value);
+					}
+
+					static unpacked_t DecodeImpl(const packed_t value, IntegerSignal::TypeTraits::TypeDispatch::FalseType)
+					{
+						return SignExtend(value);
+					}
+
+					static packed_t EncodeImpl(const unpacked_t value, IntegerSignal::TypeTraits::TypeDispatch::TrueType)
+					{
+						return IntegerSignal::LimitValue<packed_t, 0, RawMaxValue>(static_cast<packed_t>(value));
+					}
+
+					static packed_t EncodeImpl(const unpacked_t value, IntegerSignal::TypeTraits::TypeDispatch::FalseType)
+					{
+						return static_cast<packed_t>(static_cast<packed_t>(value) & RawMaxValue);
+					}
+
 					static unpacked_t SignExtend(const packed_t value)
 					{
 						constexpr packed_t SignBit = static_cast<packed_t>(RawMaxValue ^ (RawMaxValue >> 1));
@@ -274,21 +298,14 @@ namespace Inertia
 				{
 					using packed_t = raw_t;
 					using unpacked_t = value_t;
+					using sign_dispatch_t = typename IntegerSignal::TypeTraits::TypeSign::IsUnsignedType<unpacked_t>::type;
 
 					static_assert(MaxValue >= MinValue, "MaxValue must be greater than or equal to MinValue.");
 
 					static unpacked_t Decode(const packed_t value)
 					{
 						const packed_t masked = static_cast<packed_t>(value & RawMaxValue);
-
-						if constexpr (MinValue < static_cast<unpacked_t>(0))
-						{
-							return SignExtend(masked);
-						}
-						else
-						{
-							return static_cast<unpacked_t>(masked);
-						}
+						return DecodeImpl(masked, sign_dispatch_t());
 					}
 
 					static packed_t Encode(const unpacked_t value)
@@ -296,7 +313,17 @@ namespace Inertia
 						return static_cast<packed_t>(static_cast<packed_t>(value) & RawMaxValue);
 					}
 
-				private:
+                private:
+					static unpacked_t DecodeImpl(const packed_t value, IntegerSignal::TypeTraits::TypeDispatch::TrueType)
+					{
+						return static_cast<unpacked_t>(value);
+					}
+
+					static unpacked_t DecodeImpl(const packed_t value, IntegerSignal::TypeTraits::TypeDispatch::FalseType)
+					{
+						return SignExtend(value);
+					}
+
 					static unpacked_t SignExtend(const packed_t value)
 					{
 						constexpr packed_t SignBit = static_cast<packed_t>(RawMaxValue ^ (RawMaxValue >> 1));
