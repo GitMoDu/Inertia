@@ -4,7 +4,7 @@
 #define _TASK_OO_CALLBACKS
 #include <TSchedulerDeclarations.hpp>
 
-#include "../../../Framework/Model.h"
+#include "../../../Components/Core/Primitives.h"
 #include "../../../Components/Core/Lifecycle/Model.h"
 #include "../../../Components/Core/DataSource/Model.h"
 

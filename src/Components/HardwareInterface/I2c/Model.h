@@ -1,7 +1,7 @@
 #ifndef _INERTIA_COMPONENTS_HARDWARE_INTERFACE_I2C_MODEL_h
 #define _INERTIA_COMPONENTS_HARDWARE_INTERFACE_I2C_MODEL_h
 
-#include "../../../Framework/Model.h"
+#include "../../../Components/Core/Primitives.h"
 
 namespace Inertia
 {

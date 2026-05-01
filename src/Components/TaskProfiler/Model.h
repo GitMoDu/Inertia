@@ -3,7 +3,7 @@
 
 #include <IntegerSignal.h>
 
-#include "../../Framework/Model.h"
+#include "../../Components/Core/Primitives.h""
 
 namespace Inertia
 {

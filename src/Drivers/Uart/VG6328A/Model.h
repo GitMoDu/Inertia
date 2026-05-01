@@ -1,7 +1,7 @@
 #ifndef _INERTIA_DRIVERS_UART_VG6328A_MODEL_h
 #define _INERTIA_DRIVERS_UART_VG6328A_MODEL_h
 
-#include "../../../Framework/Model.h"
+#include "../../../Components/Core/Primitives.h"
 
 namespace Inertia
 {

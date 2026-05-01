@@ -1,7 +1,7 @@
 #ifndef _INERTIA_DRIVERS_STORAGE_FRAM_MB85_RC_h
 #define _INERTIA_DRIVERS_STORAGE_FRAM_MB85_RC_h
 
-#include "../../../../Framework/Model.h"
+#include "../../../../Components/Core/Primitives.h"
 
 namespace Inertia
 {

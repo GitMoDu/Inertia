@@ -1,7 +1,7 @@
 #ifndef _INERTIA_COMPONENTS_STORAGE_LITTLEFS_MODEL_h
 #define _INERTIA_COMPONENTS_STORAGE_LITTLEFS_MODEL_h
 
-#include "../../../Framework/Model.h"
+#include "../../../Components/Core/Primitives.h"
 
 namespace Inertia
 {

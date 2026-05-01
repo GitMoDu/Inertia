@@ -1,7 +1,7 @@
 #ifndef _INERTIA_DRIVERS_IMU_MPU6050_DEVICE_MODEL_h
 #define _INERTIA_DRIVERS_IMU_MPU6050_DEVICE_MODEL_h
 
-#include "../../../Framework/Model.h"
+#include "../../../Components/Core/Primitives.h"
 #include "../../../Components/HardwareInterface/I2c/Model.h"
 
 namespace Inertia

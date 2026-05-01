@@ -5,7 +5,7 @@
 #include <QMI8658.h> // https://github.com/lahavg/QMI8658-Arduino-Library
 
 
-#include "../../Framework/Model.h"
+#include "../../Components/Core/Primitives.h"
 #include "../../Components/Core/DataSource/Model.h"
 #include "../../Components/Core/Lifecycle/Model.h"
 

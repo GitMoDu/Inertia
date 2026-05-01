@@ -1,9 +1,7 @@
 #ifndef _INERTIA_COMPONENTS_AHRS_MODEL_h
 #define _INERTIA_COMPONENTS_AHRS_MODEL_h
 
-#include <IntegerSignal.h>
-
-#include "../../Framework/Model.h"
+#include "../../Components/Core/Primitives.h"
 
 namespace Inertia
 {

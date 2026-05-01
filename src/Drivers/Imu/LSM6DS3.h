@@ -1,7 +1,7 @@
 #ifndef _INERTIA_DRIVERS_LSM6DS3_WRAPPER_h
 #define _INERTIA_DRIVERS_LSM6DS3_WRAPPER_h
 
-#include "../../Framework/Model.h"
+#include "../../Components/Core/Primitives.h"
 
 #if defined(ARDUINO_Seeed_XIAO_nRF52840_Sense)
 #include <LSM6DS3.h> // SparkFun driver included in the Seeed XIAO nRF52840 Sense core https://github.com/Seeed-Studio/OSHW-XIAO-Series

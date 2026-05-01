@@ -2,7 +2,7 @@
 #define _INERTIA_MODEL_INCLUDE_h
 
 // Framework model include.
-#include "Framework/Model.h"
+#include "Components/Core/Primitives.h"
 
 // Log model and buffer task.
 #include "Components/Log/Model.h"

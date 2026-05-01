@@ -1,7 +1,7 @@
 #ifndef _INERTIA_DRIVERS_OPTICAL_FLOW_MTF_0X_MODEL_h
 #define _INERTIA_DRIVERS_OPTICAL_FLOW_MTF_0X_MODEL_h
 
-#include "../../../Framework/Model.h"
+#include "../../../Components/Core/Primitives.h"
 #include "../../../Components/Core/Lifecycle/Model.h"
 
 namespace Inertia

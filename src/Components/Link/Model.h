@@ -1,7 +1,7 @@
 #ifndef _INERTIA_COMPONENTS_LINK_MODEL_h
 #define _INERTIA_COMPONENTS_LINK_MODEL_h
 
-#include "../../Framework/Model.h"
+#include "../../Components/Core/Primitives.h"
 #include "../../Components/Core/Lifecycle/Model.h"
 #include "../../Components/Core/DataSource/Model.h"
 
