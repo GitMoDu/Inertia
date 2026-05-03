@@ -55,7 +55,7 @@ namespace Inertia
 						static constexpr uint8_t RANGE_SHIFT = 3;
 						static constexpr uint8_t WHO_AM_I_MASK = 0x7E;
 						static constexpr uint8_t WHO_AM_I_EXPECTED = 0x68;
-						static constexpr uint32_t CLOCK_SPEED_I2C = 800000;
+						static constexpr uint32_t CLOCK_SPEED_I2C = 400000;
 
 
 					private:
