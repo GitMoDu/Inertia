@@ -67,6 +67,8 @@
 // PWM model
 #include "Components/PowerTrain/Pwm/Model.h"
 
+#include "Components/Light/Model.h"
+
 
 // Servo actuator model, default calibration, and calibrated driver.
 #include "Components/PowerTrain/ServoActuator/Model.h"

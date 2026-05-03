@@ -53,4 +53,7 @@
 // PWM drivers for internal peripherals.
 #include "Drivers/Pwm/RaspberryPiPico/SliceDriver.h"
 
+#include "Drivers/Light/LedStrip/Ws2812b/Model.h"
+#include "Drivers/Light/LedStrip/Ws2812b/RaspberryPiPico/PioDriver.h"
+
 #endif
