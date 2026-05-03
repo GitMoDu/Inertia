@@ -1,7 +1,7 @@
 #ifndef _INERTIA_COMPONENTS_TIMESTAMP_MODEL_h
 #define _INERTIA_COMPONENTS_TIMESTAMP_MODEL_h
 
-#include "../../Components/Core/Primitives.h""
+#include "../../Components/Core/Primitives.h"
 
 namespace Inertia
 {
