@@ -36,7 +36,9 @@
 
 // MPU6050 IMU sensor driver.
 #include "Drivers/Imu/MPU6050/DeviceDriver.h"
-#include "Drivers/Imu/MPU6050/TemplateDriver.h"
+#include "Drivers/Imu/MPU6050/SharedDriver.h"
+#include "Drivers/Imu/MPU6050/MotionStepDriver.h"
+#include "Drivers/Imu/MPU6050/TemperatureStepDriver.h"
 
 // MTF-01/02 Optical Flow and Range sensor drivers.
 #include "Drivers/OpticalFlow/MTF0X/DeviceDriver.h"
