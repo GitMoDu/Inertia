@@ -18,6 +18,17 @@ namespace Inertia
 					using namespace IntegerSignal;
 					using namespace IntegerSignal::FixedPoint::FactorScale;
 
+					struct RawSample
+					{
+						int16_t accelerationX = 0;
+						int16_t accelerationY = 0;
+						int16_t accelerationZ = 0;
+						int16_t temperature = 0;
+						int16_t gyroscopeX = 0;
+						int16_t gyroscopeY = 0;
+						int16_t gyroscopeZ = 0;
+					};
+
 					static constexpr uint8_t DEVICE_ADDRESS_LOW = 0x68;
 					static constexpr uint8_t DEVICE_ADDRESS_HIGH = 0x69;
 
@@ -44,7 +55,7 @@ namespace Inertia
 						static constexpr uint8_t RANGE_SHIFT = 3;
 						static constexpr uint8_t WHO_AM_I_MASK = 0x7E;
 						static constexpr uint8_t WHO_AM_I_EXPECTED = 0x68;
-						static constexpr uint32_t CLOCK_SPEED_I2C = 400000;
+						static constexpr uint32_t CLOCK_SPEED_I2C = 800000;
 
 
 					private:
@@ -85,7 +96,7 @@ namespace Inertia
 							return UpdateRegisterBits(REGISTER_CONFIG, CONFIG_DLPF_MASK, mode & CONFIG_DLPF_MASK);
 						}
 
-						bool getMotion6(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz)
+						bool getSample(RawSample& sample)
 						{
 							uint8_t buffer[14]{};
 							if (!ReadBytes(REGISTER_ACCEL_XOUT_H, buffer, sizeof(buffer)))
@@ -93,25 +104,49 @@ namespace Inertia
 								return false;
 							}
 
-							*ax = CombineBytes(buffer[0], buffer[1]);
-							*ay = CombineBytes(buffer[2], buffer[3]);
-							*az = CombineBytes(buffer[4], buffer[5]);
-							*gx = CombineBytes(buffer[8], buffer[9]);
-							*gy = CombineBytes(buffer[10], buffer[11]);
-							*gz = CombineBytes(buffer[12], buffer[13]);
+							sample.accelerationX = CombineBytes(buffer[0], buffer[1]);
+							sample.accelerationY = CombineBytes(buffer[2], buffer[3]);
+							sample.accelerationZ = CombineBytes(buffer[4], buffer[5]);
+							sample.temperature = CombineBytes(buffer[6], buffer[7]);
+							sample.gyroscopeX = CombineBytes(buffer[8], buffer[9]);
+							sample.gyroscopeY = CombineBytes(buffer[10], buffer[11]);
+							sample.gyroscopeZ = CombineBytes(buffer[12], buffer[13]);
 
+							return true;
+						}
+
+						bool getMotion6(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz)
+						{
+							if (ax == nullptr || ay == nullptr || az == nullptr
+								|| gx == nullptr || gy == nullptr || gz == nullptr)
+							{
+								return false;
+							}
+
+							RawSample sample{};
+							if (!getSample(sample))
+							{
+								return false;
+							}
+
+							*ax = sample.accelerationX;
+							*ay = sample.accelerationY;
+							*az = sample.accelerationZ;
+							*gx = sample.gyroscopeX;
+							*gy = sample.gyroscopeY;
+							*gz = sample.gyroscopeZ;
 							return true;
 						}
 
 						bool getTemperature(int16_t& temperature)
 						{
-							uint8_t buffer[2]{};
-							if (!ReadBytes(REGISTER_TEMP_OUT_H, buffer, sizeof(buffer)))
+							RawSample sample{};
+							if (!getSample(sample))
 							{
 								return false;
 							}
 
-							temperature = CombineBytes(buffer[0], buffer[1]);
+							temperature = sample.temperature;
 							return true;
 						}
 
