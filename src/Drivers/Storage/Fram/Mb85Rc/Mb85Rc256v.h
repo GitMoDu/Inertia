@@ -18,13 +18,15 @@ namespace Inertia
 			{
 				namespace Mb85Rc
 				{
+					static constexpr uint16_t MB85RC256V_CAPACITY_BYTES = 32768;
+
 					template<typename WireType = TwoWire>
 					class Mb85Rc256v : public Inertia::Components::Storage::Fram::IFramDriver
 					{
 					public:
 						static constexpr uint8_t DEVICE_ADDRESS_BASE = 0x50;
 						static constexpr uint8_t DEVICE_ADDRESS_SELECT_MASK = 0x07;
-						static constexpr uint16_t CAPACITY_BYTES = 32768;
+						static constexpr uint16_t CAPACITY_BYTES = MB85RC256V_CAPACITY_BYTES;
 						static constexpr uint32_t CLOCK_SPEED_I2C = 800000;
 
 					private:

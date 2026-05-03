@@ -17,6 +17,25 @@ namespace Inertia
 		{
 			namespace Repository
 			{
+				namespace LittleFs
+				{
+					static constexpr size_t HeaderSize = sizeof(uint16_t) * 2 + sizeof(uint32_t) * 3;
+					static constexpr size_t RecordSize = sizeof(Inertia::Components::Log::LogRecordStruct);
+
+					static constexpr size_t GetStoreSizeForCapacity(const size_t capacity)
+					{
+						return HeaderSize + capacity * RecordSize;
+					}
+
+					static constexpr uint32_t GetMaxCapacityForSize(const size_t availableSize)
+					{
+						return availableSize < HeaderSize
+							? 0
+							: static_cast<uint32_t>((availableSize - HeaderSize) / RecordSize);
+					}
+
+	
+				}
 				using namespace Inertia::Components::Log;
 
 				template<uint32_t MaxCapacity = 1024>
@@ -25,6 +44,7 @@ namespace Inertia
 				private:
 					// Bump StoreVersion whenever LogRecordStruct layout changes.
 					static constexpr uint16_t StoreVersion = 1;
+
 
 					using Store = Inertia::Drivers::Storage::LittleFs::CircularStore<
 						Inertia::Components::Log::LogRecordStruct,
@@ -43,6 +63,11 @@ namespace Inertia
 						: Inertia::Components::Log::ILogRepository()
 						, Path(path)
 					{}
+
+					static constexpr size_t GetStoreSize()
+					{
+						return LittleFs::GetStoreSizeForCapacity(MaxCapacity);
+					}
 
 					// Caller is responsible for LittleFS.begin() before Start()
 					// and LittleFS.end() after Stop().

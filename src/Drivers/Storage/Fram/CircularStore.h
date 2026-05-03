@@ -14,6 +14,8 @@ namespace Inertia
 			{
 				using namespace Inertia::Components::Storage::Fram;
 
+				
+
 				template<typename TRecord, uint32_t TCapacity, uint16_t TVersion = 1, uint16_t TBaseAddress = 0>
 				class CircularStore
 				{
@@ -32,7 +34,7 @@ namespace Inertia
 					static constexpr uint32_t ChecksumSeed =
 						(static_cast<uint32_t>(TVersion) << 16) ^ TCapacity ^ 1898275824;
 
-					static constexpr size_t   StoreSize = HeaderSize + static_cast<size_t>(TCapacity) * RecordSize;
+					static constexpr size_t StoreSize = HeaderSize + static_cast<size_t>(TCapacity) * RecordSize;
 
 				public:
 					static constexpr uint16_t BaseAddress = TBaseAddress;
@@ -45,7 +47,7 @@ namespace Inertia
 					uint32_t Count = 0;
 					bool Started = false;
 
-             public:
+				public:
 					CircularStore(IFramDriver& driver)
 						: Driver(driver)
 					{}
@@ -138,7 +140,7 @@ namespace Inertia
 					bool     IsStarted()   const { return Started; }
 
 					// Total bytes this store occupies in FRAM — useful for packing multiple stores.
-                 static constexpr size_t GetStoreSize() { return UsedSize; }
+					static constexpr size_t GetStoreSize() { return UsedSize; }
 
 				private:
 					uint32_t LogicalToPhysical(const uint32_t logicalIndex) const

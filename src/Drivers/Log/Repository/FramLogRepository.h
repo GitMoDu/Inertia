@@ -17,6 +17,24 @@ namespace Inertia
 		{
 			namespace Repository
 			{
+				namespace Fram
+				{
+					static constexpr size_t HeaderSize = sizeof(uint16_t) * 2 + sizeof(uint32_t) * 3;
+					static constexpr size_t RecordSize = sizeof(Inertia::Components::Log::LogRecordStruct);
+
+					static constexpr size_t GetStoreSizeForCapacity(const size_t capacity)
+					{
+						return HeaderSize + capacity * RecordSize;
+					}
+
+					static constexpr uint32_t GetMaxCapacityForSize(const size_t availableSize)
+					{
+						return availableSize < HeaderSize
+							? 0
+							: static_cast<uint32_t>((availableSize - HeaderSize) / RecordSize);
+					}
+				}
+
 				template<uint32_t MaxCapacity = 256, uint16_t TBaseAddress = 0>
 				class FramLogRepository
 					: public Inertia::Components::Log::ILogRepository
