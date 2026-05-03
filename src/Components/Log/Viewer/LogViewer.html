@@ -632,6 +632,33 @@
       3: '#ff6b6b'
     };
 
+    const TAG_LABELS = {
+      656305538: 'AHRS',
+      2504544144: 'REEFWING_AHRS',
+      787473685: 'XIO_AHRS',
+      890053290: 'BOOT_COUNTER',
+      2785477403: 'LIGHT',
+      813426707: 'LINK',
+      985820946: 'LOG_META',
+      54356945: 'POWERTRAIN',
+      3648794794: 'PWM',
+      795646911: 'PWM_ACTUATOR',
+      557526181: 'SERVO',
+      1630377650: 'SERVO_ACTUATOR',
+      1294495815: 'STORAGE_ALLOC',
+      2691980192: 'FRAM',
+      540971179: 'LITTLE_FS',
+      3527493342: 'TASK_PROFILER',
+      3851162775: 'UART_INTERFACE',
+      1033721212: 'I2C',
+      2116068916: 'SERIAL',
+      4242522548: 'SPI',
+      867172820: 'MPU6050',
+      4140776039: 'MTF0X',
+      2816067516: 'MB85RC_FRAM',
+      505949888: 'VG6328A'
+    };
+
     const UINT32_SPAN = Math.pow(2, 32);
 
     const els = {
@@ -1033,13 +1060,14 @@
       });
     }
 
-    function populateMultiSelect(select, values){
+    function populateMultiSelect(select, values, labelMap = null){
       const prior = new Set(Array.from(select.selectedOptions).map(o => o.value));
       select.innerHTML = '';
       for (const value of values){
         const opt = document.createElement('option');
         opt.value = String(value);
-        opt.textContent = String(value);
+        const label = labelMap ? (labelMap[value] || value) : value;
+        opt.textContent = String(label);
         if (prior.has(String(value))) opt.selected = true;
         select.appendChild(opt);
       }
@@ -1048,7 +1076,7 @@
 
     function populateFilters(){
       populateMultiSelect(els.bootFilter, uniqueSorted(state.rows.map(r => r.bootId)));
-      populateMultiSelect(els.tagFilter, uniqueSorted(state.rows.map(r => r.tag)));
+      populateMultiSelect(els.tagFilter, uniqueSorted(state.rows.map(r => r.tag)), TAG_LABELS);
       populateMultiSelect(els.instanceFilter, uniqueSorted(state.rows.map(r => r.instance)));
       populateMultiSelect(els.codeFilter, uniqueSorted(state.rows.map(r => r.code)));
     }
@@ -1575,7 +1603,7 @@
           <td class="mono">${safe(r.recordId)}</td>
           <td class="mono">${safe(formatPrimaryTime(r[timeField], timeField))}</td>
           <td><span class="sev ${severityClass(r.type)}">${safe(severityLabel(r.type))}</span></td>
-          <td class="mono">${safe(r.tag)}</td>
+          <td class="mono">${safe(TAG_LABELS[r.tag] || r.tag)}</td>
           <td class="mono">${safe(r.instance)}</td>
           <td class="mono">${safe(r.code)}</td>
           <td class="mono">${safe(r.value)}</td>
@@ -1614,6 +1642,7 @@
         bootId: r.bootId,
         recordId: r.recordId,
         tag: r.tag,
+        tagName: TAG_LABELS[r.tag] || 'Unknown',
         instance: r.instance,
         code: r.code,
         value: r.value,
