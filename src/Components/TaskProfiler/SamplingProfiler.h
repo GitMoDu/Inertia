@@ -1,7 +1,10 @@
 #ifndef _INERTIA_COMPONENTS_TASK_PROFILER_SAMPLING_PROFILER_h
 #define _INERTIA_COMPONENTS_TASK_PROFILER_SAMPLING_PROFILER_h
 
+#if defined(_TASK_WDT_IDS) && defined(_TASK_WDT_IDS) && defined(_TASK_STATUS_REQUEST)
+
 #define _TASK_OO_CALLBACKS
+#include "../../InertiaTaskInstrumentation.h"
 #include <TSchedulerDeclarations.hpp>
 
 #include "Model.h"
@@ -225,4 +228,5 @@ namespace Inertia
 		}
 	}
 }
+#endif
 #endif
