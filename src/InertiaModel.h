@@ -72,11 +72,11 @@
 
 // Servo actuator model, default calibration, and calibrated driver.
 #include "Components/PowerTrain/ServoActuator/Model.h"
-#include "Components/PowerTrain/ServoActuator/DefaultCalibration.h"
 #include "Components/PowerTrain/ServoActuator/CalibratedDriver.h"
 
 // PWM actuator model.
 #include "Components/PowerTrain/PwmActuator/Model.h"
+#include "Components/PowerTrain/PwmActuator/CalibratedDriver.h"
 
 // Xio AHRS model and template driver.
 #include "Components/Ahrs/Xio/Model.h"

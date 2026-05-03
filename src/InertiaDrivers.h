@@ -23,6 +23,12 @@
 #include "Drivers/BootCounter/Repository/NoBootCounterRepository.h"
 #include "Drivers/BootCounter/Repository/LittleFsBootCounterRepository.h"
 
+// Servo and PWM repository drivers for storing calibration data. 
+#include "Drivers/Pwm/Repository/LittleFsRepository.h"
+#include "Drivers/Pwm/Repository/FramRepository.h"
+#include "Drivers/Servo/Repository/LittleFsRepository.h"
+#include "Drivers/Servo/Repository/FramRepository.h"
+
 // VG6328A UART module.
 #include "Drivers/Uart/VG6328A/DeviceDriver.h" 
 #include "Drivers/Uart/VG6328A/StreamDriver.h"

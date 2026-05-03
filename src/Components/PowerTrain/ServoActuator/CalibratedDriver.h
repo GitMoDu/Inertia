@@ -22,7 +22,7 @@ namespace Inertia
 				private:
 					struct cached_servo_calibration_t
 					{
-						Inertia::Components::PowerTrain::Servo::servo_calibration_t Calibration;
+						Inertia::Components::PowerTrain::ServoActuator::servo_calibration_t Calibration;
 
 						scale32_t TopScale = 0; // Precomputed scale factor for top range.
 						scale32_t BottomScale = 0; // Precomputed scale factor for bottom range.
@@ -38,8 +38,8 @@ namespace Inertia
 
 				private:
 					Inertia::Components::PowerTrain::Servo::IServoDriver& ServoDriver;
-					Inertia::Components::PowerTrain::Servo::IServoCalibration& DefaultCalibration;
-					Inertia::Components::PowerTrain::Servo::IServoCalibrationRepository& CalibrationRepository;
+					Inertia::Components::PowerTrain::ServoActuator::IServoCalibration& DefaultCalibration;
+					Inertia::Components::PowerTrain::ServoActuator::IServoCalibrationRepository& CalibrationRepository;
 
 				private:
 					cached_servo_calibration_t ServoCalibrations[ServoCount]{};
@@ -50,8 +50,8 @@ namespace Inertia
 
 				public:
 					CalibratedDriver(Inertia::Components::PowerTrain::Servo::IServoDriver& servoDriver,
-						Inertia::Components::PowerTrain::Servo::IServoCalibration& defaultCalibration,
-						Inertia::Components::PowerTrain::Servo::IServoCalibrationRepository& calibrationRepository)
+						Inertia::Components::PowerTrain::ServoActuator::IServoCalibration& defaultCalibration,
+						Inertia::Components::PowerTrain::ServoActuator::IServoCalibrationRepository& calibrationRepository)
 						: Inertia::Components::Lifecycle::ILifecycleDriver()
 						, Inertia::Components::PowerTrain::IActuatorDriver()
 						, ServoDriver(servoDriver)

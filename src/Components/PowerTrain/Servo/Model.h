@@ -47,36 +47,6 @@ namespace Inertia
 					}
 				}
 
-				/// <summary>
-				/// Represents calibration values for a servo motor.
-				/// Values in nanoseconds.
-				/// 3-point calibration allows basic linear mapping of input drive magnitude to output pulse width,
-				/// with separate values for bottom (full reverse), center (neutral), and top (full forward) positions.
-				/// </summary>
-				struct servo_calibration_t
-				{
-					uint32_t bottom;
-					uint32_t center;
-					uint32_t top;
-				};
-
-				struct IServoCalibration
-				{
-					~IServoCalibration() = default;
-
-					virtual servo_calibration_t GetServoCalibration(const uint8_t index) = 0;
-				};
-
-				struct IServoCalibrationRepository : Inertia::Components::Lifecycle::ILifecycleDriver
-				{
-					~IServoCalibrationRepository() = default;
-
-					virtual bool GetServoCalibration(const uint8_t index, servo_calibration_t& calibration) = 0;
-					virtual bool SetServoCalibration(const uint8_t index, const servo_calibration_t& calibration) = 0;
-
-					virtual bool ClearServoCalibrations() = 0;
-				};
-
 				struct IServoDriver
 				{
 					~IServoDriver() = default;
