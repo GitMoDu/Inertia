@@ -78,12 +78,12 @@ namespace Inertia
 						/// </summary>
 						static constexpr uint8_t DEVICE_NAME_MAX_LENGTH = 15;
 
-					private:
 						/// <summary>
 						/// Delay in milliseconds after reset commands.
 						/// </summary>
 						static constexpr uint16_t RESET_DELAY_MILLIS = 60;
 
+					private:
 						/// <summary>
 						/// AT command response timeout in milliseconds.
 						/// </summary>
