@@ -73,6 +73,11 @@ namespace Inertia
 						/// </summary>
 						static constexpr uint8_t DEVICE_UID_SIZE = 16;
 
+					/// <summary>
+					/// The maximum supported device name length in characters.
+					/// </summary>
+					static constexpr uint8_t DEVICE_NAME_MAX_LENGTH = 15;
+
 					private:
 						/// <summary>
 						/// Delay in milliseconds after reset commands.

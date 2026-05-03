@@ -6,6 +6,7 @@
 
 #include "Model.h"
 #include <Stream.h>
+#include <string.h>
 #include "DeviceDriver.h"
 
 
@@ -50,17 +51,17 @@ namespace Inertia
 						, SerialInstance(serial)
 					{}
 
-
-					bool Setup(const char* name)
+					bool Setup(const char* name, const uint8_t retryCount = 1)
 					{
+						uint8_t tryCount = 0;
+
+                        if (!IsValidDeviceName(name))
+						{
+							return false;
+						}
+
 						DeviceName = name;
 
-						//TODO: Return true if device name is valid (null terminated)
-						return true;
-					}
-
-					bool Start() override
-					{
 						// Ensure clean state.
 						if (DeviceReady)
 						{
@@ -68,36 +69,32 @@ namespace Inertia
 							Driver::disconnectSPP(SerialInstance);
 							Driver::disconnectBLE(SerialInstance);
 						}
+
 						SerialInstance.end();
 						SerialInstance.begin(Driver::BLE_BAUD_RATE);
-						delay(10); // Allow time for serial port to initialize.
 
-						// Factory reset to ensure a known state. This will clear any existing connections and settings.
-						Driver::factoryResetNoResponse(SerialInstance);
+						while (tryCount <= retryCount)
+						{
+							tryCount++;
+							if (SetupDevice())
+							{
+								DeviceReady = true;
+								return true;
+							}
+							else
+							{
+								delay(Device::Driver::RESET_DELAY_MILLIS); // Wait before retrying to allow any transient issues to resolve.
+							}
+						}
 
-						// Re-enter command mode after reset.
-						if (!Driver::resetAndReenterCommandMode(SerialInstance)) { return false; }
+						DeviceReady = false;
 
-						// Retrieve the device UID.
-						if (!Driver::getFlashUidLine(SerialInstance, DeviceId, sizeof(DeviceId))) { return false; }
+						return false;
+					}
 
-						// Set name for both SPP and BLE to ensure consistent identification across connection types.
-						if (!Driver::setBLEName(SerialInstance, DeviceName)) { return false; }
-
-						// Stop unused Bluetooth Classic (SPP) mode.
-						if (!Driver::disconnectSPP(SerialInstance)) { return false; }
-
-						// Restart to apply name change and return to command mode.
-						Driver::resetNoResponse(SerialInstance);
-						//if (!Driver::enterCommandMode(SerialInstance)) { return false; }
-						//if (!Driver::resetAndReenterCommandMode(SerialInstance)) { return false; }
-
-						// Device configured, enter data mode to start transparent serial communication over BLE.
-						//if (!Driver::enterDataMode(SerialInstance)) { return false; }
-
-						DeviceReady = true;
-
-						return true;
+					bool Start() override
+					{
+						return DeviceReady;
 					}
 
 					bool GetId(char* out, const size_t outSize) const
@@ -139,7 +136,6 @@ namespace Inertia
 							Driver::disconnectSPP(SerialInstance);
 							Driver::disconnectBLE(SerialInstance);
 						}
-						SerialInstance.end();
 					}
 
 					// Hardware serial interface. begin and end are no-ops since initialization and cleanup are handled in Start and Stop.
@@ -218,6 +214,65 @@ namespace Inertia
 					}
 
 					using Stream::write;
+
+				private:
+                  static bool IsValidDeviceName(const char* name)
+					{
+						if (name == nullptr)
+						{
+							return false;
+						}
+
+						size_t length = 0;
+						for (; name[length] != '\0'; ++length)
+						{
+                           if (length >= Driver::DEVICE_NAME_MAX_LENGTH)
+							{
+								return false;
+							}
+
+							const char current = name[length];
+							const bool isAlphaNumeric = (current >= 'A' && current <= 'Z')
+								|| (current >= 'a' && current <= 'z')
+								|| (current >= '0' && current <= '9');
+							const bool isAllowedSymbol = current == '_' || current == '-';
+
+							if (!isAlphaNumeric && !isAllowedSymbol)
+							{
+								return false;
+							}
+						}
+
+						return length > 0;
+					}
+
+					bool SetupDevice()
+					{
+						// Factory reset to ensure a known state. This will clear any existing connections and settings.
+						Driver::factoryResetNoResponse(SerialInstance);
+
+						// Re-enter command mode after reset.
+						if (!Driver::resetAndReenterCommandMode(SerialInstance)) { return false; }
+
+						// Retrieve the device UID.
+						if (!Driver::getFlashUidLine(SerialInstance, DeviceId, sizeof(DeviceId))) { return false; }
+
+						// Set name for both SPP and BLE to ensure consistent identification across connection types.
+						if (!Driver::setBLEName(SerialInstance, DeviceName)) { return false; }
+
+						// Stop unused Bluetooth Classic (SPP) mode.
+						if (!Driver::disconnectSPP(SerialInstance)) { return false; }
+
+						// Restart to apply name change and return to command mode.
+						Driver::resetNoResponse(SerialInstance);
+						//if (!Driver::enterCommandMode(SerialInstance)) { return false; }
+						//if (!Driver::resetAndReenterCommandMode(SerialInstance)) { return false; }
+
+						// Device configured, enter data mode to start transparent serial communication over BLE.
+						//if (!Driver::enterDataMode(SerialInstance)) { return false; }
+
+						return true;
+					}
 				};
 			}
 
