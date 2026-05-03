@@ -20,7 +20,19 @@ namespace Inertia
 
 				static bool PrepareFilesystem(Inertia::Model::ILogListener* logListener = nullptr, const uint8_t instanceId = 0)
 				{
-					if (!::LittleFS.begin())
+					if (::LittleFS.begin())
+					{
+						if (logListener != nullptr)
+							logListener->OnLog(Inertia::Model::LogEntryStruct{
+								.Tag = LOG_TAG,
+								.Instance = instanceId,
+								.Type = Inertia::Model::LogTypeEnum::Info,
+								.Code = static_cast<uint8_t>(LogCodeEnum::Mounted),
+								.Value = 0 });
+
+						return true;
+					}
+					else
 					{
 						if (logListener != nullptr)
 							logListener->OnLog(Inertia::Model::LogEntryStruct{
@@ -42,7 +54,19 @@ namespace Inertia
 							return false;
 						}
 
-						if (!::LittleFS.begin())
+						if (::LittleFS.begin())
+						{
+							if (logListener != nullptr)
+								logListener->OnLog(Inertia::Model::LogEntryStruct{
+									.Tag = LOG_TAG,
+									.Instance = instanceId,
+									.Type = Inertia::Model::LogTypeEnum::Info,
+									.Code = static_cast<uint8_t>(LogCodeEnum::Mounted),
+									.Value = 0 });
+
+							return true;
+						}
+						else
 						{
 							if (logListener != nullptr)
 								logListener->OnLog(Inertia::Model::LogEntryStruct{
@@ -51,20 +75,11 @@ namespace Inertia
 									.Type = Inertia::Model::LogTypeEnum::Error,
 									.Code = static_cast<uint8_t>(LogCodeEnum::BeginAfterFormatFailed),
 									.Value = 0 });
-
-							return false;
 						}
-
-						if (logListener != nullptr)
-							logListener->OnLog(Inertia::Model::LogEntryStruct{
-								.Tag = LOG_TAG,
-								.Instance = instanceId,
-								.Type = Inertia::Model::LogTypeEnum::Info,
-								.Code = static_cast<uint8_t>(LogCodeEnum::Mounted),
-								.Value = 0 });
 					}
 
-					return true;
+					return false;
+
 				}
 
 				static void StopFilesystem(Inertia::Model::ILogListener* logListener = nullptr, const uint8_t instanceId = 0)
@@ -112,8 +127,13 @@ namespace Inertia
 
 					virtual void Stop() override
 					{
-						Mounted = false;
+						if (!Mounted)
+						{
+							return;
+						}
+
 						StopFilesystem(LogListener, InstanceId);
+						Mounted = false;
 					}
 				};
 			}
