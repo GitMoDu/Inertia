@@ -1,63 +1,84 @@
 # Inertia
 
-Inertia is an embedded C/C++ library for motion-oriented and robotics-oriented systems.
+Inertia is a modular embedded C/C++ library for motion-oriented, robotics-oriented, and device-control systems.
 
-At the moment, this repository is in an active restructuring phase. Core concepts are already present, but the public layout, namespaces, module boundaries, and some APIs are still settling.
+It provides reusable models, drivers, components, and assemblies for building embedded applications with sensor integration, control logic, storage, communication, logging, and task instrumentation.
 
-## Current Status
+## Status
 
-This README is intentionally temporary.
+The library is stable enough to document and build against, although some APIs and module boundaries may continue to evolve over time.
 
-What is in the repository today is a mixture of:
-- reusable data/model types
-- framework/task utilities
-- hardware-facing drivers
-- motion/orientation-related components
-- experiments and examples
+## What Inertia Is For
 
-Some parts are more stable than others, and some areas may still be renamed, moved, split, or removed.
+Inertia is intended to serve as a reusable embedded foundation for projects that need:
+
+- Motion And Orientation Processing
+- Sensor Acquisition
+- Serial, I2C, And SPI Integration
+- Storage And Persistent Repositories
+- Logging And Profiling
+- Control And Actuation
+- Reusable Robotics- Or Vehicle-Oriented Building Blocks
 
 ## Repository Layout
 
-Current top-level structure includes:
+- `src/InertiaModel.h` — Main include for shared models, components, and assemblies, with no hardware dependencies.
+- `src/InertiaDrivers.h` — Main include for concrete hardware and platform drivers.
+- `src/InertiaTaskInstrumentation.h` — Task instrumentation hooks and integration helpers.
+- `src/Components` — Reusable application-level and domain-level building blocks.
+- `src/Drivers` — Hardware-specific and platform-specific drivers.
+- `src/Assemblies` — Higher-level systems composed from components and drivers.
+- `Examples` — Example, testing, and profiling-oriented projects.
 
-- `src/Framework` — scheduling/task-related framework code
-- `src/Drivers` — device/sensor driver code
-- `src/Components` — higher-level components such as AHRS-related functionality
-- `src/InertiaModel.h` — central model/data declarations
-- `src/InertiaDrivers.h` — driver-facing aggregation header
-- `src/InertiaTaskInstrumentation.h` — task instrumentation hooks/utilities
-- `Examples/` — example and testing sketches/projects
+## Included Feature Areas
 
-This structure should be treated as provisional.
+### Motion And Orientation
+- AHRS-Related Components
+- Kinematic Estimators
+- IMU Driver Integrations
+- Orientation And Motion Support Utilities
 
-## What Inertia Is Trying To Be
+### Communication And Hardware Interfaces
+- UART Support
+- Serial, I2C, And SPI Interface Abstractions
+- Link And Transport-Oriented Models
 
-Inertia is evolving toward a modular foundation for embedded motion systems, including things like:
+### Storage And Persistence
+- FRAM Support
+- LittleFS-Based Storage Support
+- Repositories For Logs, Boot Counters, PWM, And Servo Calibration Data
 
-- sensor data acquisition
-- orientation / inertial processing
-- driver composition
-- task scheduling and instrumentation
-- reusable interfaces for robotics and vehicle-oriented projects
+### Control And Actuation
+- PID And Control-Related Models
+- PowerTrain Abstractions
+- Servo And PWM Actuator Models
+- Calibrated Driver Helpers
 
-The exact packaging of those responsibilities is still being refined.
-
-## Stability Notice
-
-Please assume the following may change without much notice while the library structure settles:
-
-- namespaces
-- header names
-- folder layout
-- public interfaces
-- component boundaries
-- example organization
-
-If you use the library early, expect some churn.
+### Logging And Observability
+- Log Models And Repositories
+- Task Profiling
+- Sampling Profiler Support
+- Task Instrumentation Hooks
 
 ## Examples
 
-There are examples in `Examples/`, including testing/profiling-oriented material.
+The repository includes example material under `Examples/`, including:
 
-They are useful as implementation references, but they should not yet be treated as final API documentation.
+- `TaskProfilerExample` — Example for task profiling.
+- `Testing` — Integration and unit test examples.
+
+These examples are useful as integration references and validation material, especially around profiling and driver interaction.
+
+## Usage
+
+For broad access to logic-only shared models and components:
+
+```cpp
+#include <InertiaModel.h>
+```
+
+For hardware-dependent and platform driver access:
+
+```cpp
+#include <InertiaDrivers.h>
+```
