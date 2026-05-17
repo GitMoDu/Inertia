@@ -17,6 +17,8 @@ namespace Inertia
 
 			using light_color_t = uint32_t; // RGB color represented as 0xRRGGBB.
 
+			static constexpr light_intensity_t LIGHT_INTENSITY_MAX = UINT16_MAX;
+
 			struct ILightIntensityDriver : Inertia::Components::Lifecycle::ILifecycleDriver
 			{
 				~ILightIntensityDriver() = default;

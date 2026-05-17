@@ -59,6 +59,8 @@
 // PWM drivers for internal peripherals.
 #include "Drivers/Pwm/RaspberryPiPico/SliceDriver.h"
 
+// Light intensity driver using PWM on Raspberry Pi Pico.
+#include "Drivers/Light/Pwm/RaspberryPiPico/LightIntensitySliceDriver.h"
 
 // LED strip drivers for addressable LEDs model.
 #include "Drivers/Light/LedStrip/Ws2812b/Model.h"
