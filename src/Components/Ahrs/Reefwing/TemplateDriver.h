@@ -84,8 +84,8 @@ namespace Inertia
 					TemplateDriver(Inertia::Model::IDataSource<Inertia::Model::timestamped_acceleration_t>* accelerationSource,
 						Inertia::Model::IDataSource<Inertia::Model::timestamped_angular_velocity_t>* angularVelocitySource,
 						Inertia::Model::IDataSource<Inertia::Model::timestamped_magnet_t>* magnetometerSource,
-						BoardType boardType,
-						ImuType imuType)
+						BoardType boardType = BoardType::NOT_DEFINED,
+						ImuType imuType = ImuType::MPU6050)
 						: Inertia::Components::Lifecycle::IPeriodicDriver()
 						, AccelerationSource(accelerationSource)
 						, AngularVelocitySource(angularVelocitySource)
