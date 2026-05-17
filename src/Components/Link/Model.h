@@ -17,7 +17,8 @@ namespace Inertia
 			{
 				NoLink,
 				Linking,
-				Linked
+				Linked,
+				EnumCount
 			};
 
 			enum class LinkingEnum : uint8_t
@@ -26,6 +27,7 @@ namespace Inertia
 				ScanningNew,
 				PairingNew,
 				ScanningExisting,
+				EnumCount
 			};
 
 			struct LinkStateStruct
