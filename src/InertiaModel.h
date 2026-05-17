@@ -67,8 +67,11 @@
 // PWM model
 #include "Components/PowerTrain/Pwm/Model.h"
 
+// Light model for LED, strips, etc.
 #include "Components/Light/Model.h"
 
+// ADC model.
+#include "Components/Adc/Model.h"
 
 // Servo actuator model, default calibration, and calibrated driver.
 #include "Components/PowerTrain/ServoActuator/Model.h"

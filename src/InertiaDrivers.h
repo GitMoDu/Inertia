@@ -23,7 +23,7 @@
 #include "Drivers/BootCounter/Repository/NoBootCounterRepository.h"
 #include "Drivers/BootCounter/Repository/LittleFsBootCounterRepository.h"
 
-// Servo and PWM repository drivers for storing calibration data. 
+// Repository drivers for storing calibration data. 
 #include "Drivers/Pwm/Repository/LittleFsRepository.h"
 #include "Drivers/Pwm/Repository/FramRepository.h"
 #include "Drivers/Servo/Repository/LittleFsRepository.h"
@@ -59,7 +59,13 @@
 // PWM drivers for internal peripherals.
 #include "Drivers/Pwm/RaspberryPiPico/SliceDriver.h"
 
+
+// LED strip drivers for addressable LEDs model.
 #include "Drivers/Light/LedStrip/Ws2812b/Model.h"
+
+#include "Drivers/Adc/RaspberryPiPico/AdcDriver.h"
+
+// LED strip drivers for addressable LEDs using PIO on Raspberry Pi Pico.
 #include "Drivers/Light/LedStrip/Ws2812b/RaspberryPiPico/PioDriver.h"
 
 #endif
