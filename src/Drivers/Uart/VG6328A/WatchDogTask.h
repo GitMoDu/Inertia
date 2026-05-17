@@ -29,7 +29,8 @@ namespace Inertia
 				/// Provided a protocol connection state source, the watchdog only arms after a real protocol connection has been observed and checks for the indicator pin remaining asserted after disconnect.
 				/// </summary>
 				/// <typeparam name="BleConnectedPin">The digital pin number used to read the BLE connection indicator.</typeparam>
-				template<uint8_t BleConnectedPin>
+				template<typename DriverType,
+					uint8_t BleConnectedPin>
 				class WatchDogTask
 					: public Inertia::Components::DataSource::IObserver<Inertia::Components::Link::LinkStateStruct>
 					, public TS::Task
@@ -63,11 +64,12 @@ namespace Inertia
 					StateEnum CurrentState = StateEnum::Disabled;
 
 				private:
-					Inertia::Components::Lifecycle::ILifecycleDriver& Driver;
+					DriverType& Driver;
 
 				public:
-					WatchDogTask(TS::Scheduler& scheduler, Inertia::Components::Lifecycle::ILifecycleDriver& driver)
-						: TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
+					WatchDogTask(TS::Scheduler& scheduler, DriverType& driver)
+						: Inertia::Components::DataSource::IObserver<Inertia::Components::Link::LinkStateStruct>()
+						, TS::Task(TASK_IMMEDIATE, TASK_FOREVER, &scheduler, false)
 						, Driver(driver)
 					{}
 

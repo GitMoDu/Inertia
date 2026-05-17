@@ -83,7 +83,7 @@ namespace Inertia
 							}
 							else
 							{
-								delay(Device::Driver::RESET_DELAY_MILLIS); // Wait before retrying to allow any transient issues to resolve.
+								delay(Device::Driver::RESET_DELAY_MILLIS*2); // Wait before retrying to allow any transient issues to resolve.
 							}
 						}
 
