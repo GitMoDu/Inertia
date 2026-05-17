@@ -32,6 +32,9 @@ namespace Inertia
 						static constexpr uint8_t InvalidStateMachine = UINT8_MAX;
 						static constexpr uint8_t InvalidPin = UINT8_MAX;
 						static constexpr uint8_t CyclesPerBit = 10;
+						static constexpr uint8_t GpioPinsPerBase = 32;
+						static constexpr uint8_t DefaultGpioBase = 0;
+						static constexpr uint8_t HighGpioBase = 16;
 
 						static const uint16_t ProgramInstructions[4];
 						static const pio_program_t Program;
@@ -124,6 +127,11 @@ namespace Inertia
 								return false;
 							}
 
+							if (!ConfigureGpioBase(pio))
+							{
+								return false;
+							}
+
 							const int claimedStateMachine = pio_claim_unused_sm(pio, false);
 							if (claimedStateMachine < 0)
 							{
@@ -151,6 +159,33 @@ namespace Inertia
 							StateMachine = static_cast<uint>(claimedStateMachine);
 							ProgramOffset = offset;
 							return true;
+						}
+
+						static bool ConfigureGpioBase(PIO pio)
+						{
+#if defined(PICO_RP2350)
+							const uint gpioBase = GetRequiredGpioBase();
+
+							if (pio_get_gpio_base(pio) == gpioBase)
+							{
+								return true;
+							}
+
+							if (pio->ctrl & (PIO_CTRL_SM_ENABLE_BITS | PIO_CTRL_CLKDIV_RESTART_BITS))
+							{
+								return false;
+							}
+
+							pio_set_gpio_base(pio, gpioBase);
+#endif
+							return true;
+						}
+
+						static constexpr uint GetRequiredGpioBase()
+						{
+							return Pin >= GpioPinsPerBase
+								? HighGpioBase
+								: DefaultGpioBase;
 						}
 
 						static pio_sm_config GetDefaultConfig(const uint offset)
