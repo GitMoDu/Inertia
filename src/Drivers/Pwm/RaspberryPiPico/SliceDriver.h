@@ -66,11 +66,11 @@ namespace Inertia
 							return false;
 						}
 
-                  const uint32_t divider16 = static_cast<uint32_t>(
-						(clockCyclesPerPeriod <= UINT16_MAX)
-						? 16
-						: ((clockCyclesPerPeriod * 16ULL + UINT16_MAX - 1ULL) / UINT16_MAX));
-					if (divider16 > (255 * 16 + 15))
+						const uint32_t divider16 = static_cast<uint32_t>(
+							(clockCyclesPerPeriod <= UINT16_MAX)
+							? 16
+							: ((clockCyclesPerPeriod * 16ULL + UINT16_MAX - 1ULL) / UINT16_MAX));
+						if (divider16 > (255 * 16 + 15))
 						{
 							return false;
 						}
@@ -85,7 +85,7 @@ namespace Inertia
 						ChannelNumbers[0] = pwm_gpio_to_channel(FirstPin);
 						gpio_set_function(FirstPin, GPIO_FUNC_PWM);
 
-						if constexpr (SecondPin != InvalidPin)
+						if (SecondPin != InvalidPin)
 						{
 							if (pwm_gpio_to_slice_num(SecondPin) != SliceNumber)
 							{
@@ -196,7 +196,7 @@ namespace Inertia
 							return FirstPin;
 						}
 
-						if constexpr (SecondPin != InvalidPin)
+						if (SecondPin != InvalidPin)
 						{
 							if (index == 1)
 							{

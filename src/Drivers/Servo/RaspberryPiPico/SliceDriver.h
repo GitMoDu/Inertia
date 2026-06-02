@@ -51,7 +51,7 @@ namespace Inertia
 
 					bool Start() override
 					{
-						if constexpr (FirstPin == InvalidPin)
+						if (FirstPin == InvalidPin)
 						{
 							return false;
 						}
@@ -84,7 +84,7 @@ namespace Inertia
 						ChannelNumbers[0] = pwm_gpio_to_channel(FirstPin);
 						gpio_set_function(FirstPin, GPIO_FUNC_PWM);
 
-						if constexpr (SecondPin != InvalidPin)
+						if (SecondPin != InvalidPin)
 						{
 							if (pwm_gpio_to_slice_num(SecondPin) != SliceNumber)
 							{
@@ -195,7 +195,7 @@ namespace Inertia
 							return FirstPin;
 						}
 
-						if constexpr (SecondPin != InvalidPin)
+						if (SecondPin != InvalidPin)
 						{
 							if (index == 1)
 							{
