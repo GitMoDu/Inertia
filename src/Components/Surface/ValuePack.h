@@ -80,7 +80,7 @@ namespace Inertia
 					template<uint8_t ValueIndex>
 					void SetSigned(const int16_t value)
 					{
-                        SetUnsigned<ValueIndex>(PackSigned12(value));
+						SetUnsigned<ValueIndex>(PackSigned12(value));
 					}
 
 				private:
@@ -216,12 +216,14 @@ namespace Inertia
 
 					void SetPacked(const uint64_t packed)
 					{
+						const uint8_t flag = static_cast<uint8_t>(Data[7] & 0x80u);
+
 						for (uint8_t i = 0; i < sizeof(Data); i++)
 						{
 							Data[i] = static_cast<uint8_t>((packed >> (i * 8)) & 0xFFu);
 						}
 
-						Data[7] &= 0x7F;
+						Data[7] = static_cast<uint8_t>((Data[7] & 0x7Fu) | flag);
 					}
 
 					static int32_t SignExtend21(const uint32_t value)
@@ -261,7 +263,7 @@ namespace Inertia
 						return EncodeImpl(limited, sign_dispatch_t());
 					}
 
-                private:
+				private:
 					static unpacked_t DecodeImpl(const packed_t value, IntegerSignal::TypeTraits::TypeDispatch::TrueType)
 					{
 						return static_cast<unpacked_t>(value);
@@ -313,7 +315,7 @@ namespace Inertia
 						return static_cast<packed_t>(static_cast<packed_t>(value) & RawMaxValue);
 					}
 
-                private:
+				private:
 					static unpacked_t DecodeImpl(const packed_t value, IntegerSignal::TypeTraits::TypeDispatch::TrueType)
 					{
 						return static_cast<unpacked_t>(value);
