@@ -12,6 +12,7 @@
 
 #include "../../../Components/Core/DataSource/Model.h"
 #include "../../../Components/Core/Lifecycle/Model.h"
+#include "../../../Components/Link/Model.h"
 
 namespace Inertia
 {
@@ -20,7 +21,7 @@ namespace Inertia
 		namespace Uart
 		{
 			/// <summary>
-		 /// Watchdog support for a VG6328A Bluetooth module connection indicator.
+			/// Watchdog support for a VG6328A Bluetooth module connection indicator.
 			/// </summary>
 			namespace VG6328A
 			{

@@ -3,6 +3,9 @@
 
 #if defined(ARDUINO_ARCH_STM32F1) || defined(ARDUINO_ARCH_STM32)
 #include <Arduino.h>
+#if defined(ARDUINO_ARCH_STM32F1) && !defined(STM32_CORE_VERSION)
+#include <util/atomic.h>
+#endif
 #include "../Model.h"
 
 namespace Inertia
@@ -96,8 +99,15 @@ namespace Inertia
 							static inline void Transmit(const uint8_t* data, const uint16_t length, const GpioWriter& output)
 							{
 								uint16_t remaining = length;
+#if defined(STM32_CORE_VERSION)
 								const uint32_t interruptState = __get_PRIMASK();
-								noInterrupts();
+								__disable_irq();
+#elif defined(ARDUINO_ARCH_STM32F1)
+								const uint32_t interruptState = __get_primask();
+								__set_primask(1);
+#else
+#error "SK6812 STM32 bitbang: unsupported STM32 interrupt API."
+#endif
 								while (remaining--)
 								{
 									const uint8_t value = *data++;
@@ -111,10 +121,12 @@ namespace Inertia
 										DwtCycleTimer::WaitFor(start + ProtocolTiming::BitPeriodCycles);
 									}
 								}
+#if defined(STM32_CORE_VERSION)
 								if (interruptState == 0)
-								{
-									interrupts();
-								}
+									__enable_irq();
+#elif defined(ARDUINO_ARCH_STM32F1)
+								__set_primask(interruptState);
+#endif
 							}
 						}
 

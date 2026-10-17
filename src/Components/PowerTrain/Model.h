@@ -5,6 +5,7 @@
 
 #include "../../Components/Core/DataSource/Model.h"
 #include "../../Components/Core/Lifecycle/Model.h"
+#include "../Control/Pid/Model.h"
 
 namespace Inertia
 {

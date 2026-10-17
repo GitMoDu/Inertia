@@ -5,7 +5,6 @@
 #include "../../../Components/Log/Model.h"
 #include "../../../Components/Timestamp/Model.h"
 
-#include <Stream.h>
 
 namespace Inertia
 {
@@ -17,14 +16,21 @@ namespace Inertia
 			{
 				using namespace Inertia::Components::Log;
 
+				/// <summary>
+				/// A repository that implements Inertia::Components::Log::ILogRepository by writing log entries to a serial-like output stream. 
+				/// It forwards formatted entries to the provided stream and does not persist records.
+				/// </summary>
+				/// <typeparam name="StreamType">The type of the output stream used for serial printing. 
+				/// Must implement availableForWrite(), print(...), and println(...).</typeparam>
+				template<typename StreamType>
 				class SerialOutRepository
 					: public Inertia::Components::Log::ILogRepository
 				{
 				private:
-					Stream& SerialOut;
+					StreamType& SerialOut;
 
 				public:
-					SerialOutRepository(Stream& serial)
+					SerialOutRepository(StreamType& serial)
 						: Inertia::Components::Log::ILogRepository()
 						, SerialOut(serial)
 					{}
@@ -47,6 +53,7 @@ namespace Inertia
 						{
 							return true; // Serial not available, skip logging.
 						}
+
 						SerialOut.print(timestamp.GetSeconds());
 						SerialOut.print(' ');
 						switch (logEntry.Type)
