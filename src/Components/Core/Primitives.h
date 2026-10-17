@@ -75,6 +75,11 @@ namespace Inertia
 			uint8_t value;
 		};
 
+		struct signed_effort_t
+		{
+			int8_t value; // -128 to 127, where the sign indicates direction and the magnitude indicates effort level.
+		};
+
 		static constexpr float G_PER_ACCELERATION_UNIT = 0.001f;
 
 		static constexpr float DEG_PER_ANGLE_UNIT = 360.0f / static_cast<float>(ANGLE_RANGE);

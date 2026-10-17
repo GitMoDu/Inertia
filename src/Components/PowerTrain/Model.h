@@ -60,33 +60,44 @@ namespace Inertia
 			};
 
 
-			struct quad_stabilization_effort_t : public Inertia::Model::effort_t
-			{};
+			struct altitude_effort_t : public Inertia::Model::effort_t {};
 
-			struct power_effort_t : public Inertia::Model::effort_t
-			{};
-
-
-			/// <summary>
-			/// Represents a command structure for controlling a quadcopter.
-			/// </summary>
-			struct QuadCommandStruct
+			//TODO: Move section to quad model.
+			struct quad_power_effort_t
 			{
-				Inertia::Model::euler_angle_t OrientationTarget{};
-				Inertia::Model::vector32_t AngularVelocityTarget{};
-				actuate_t PowerTarget = 0;
-				bool Enabled = true;
+				uint8_t Fl = 0;
+				uint8_t Fr = 0;
+				uint8_t Bl = 0;
+				uint8_t Br = 0;
+			};
+
+			struct quad_stabilization_effort_t : public Inertia::Model::effort_t {};
+			struct quad_pitch_effort_t : public Inertia::Model::effort_t {};
+			struct quad_roll_effort_t : public Inertia::Model::effort_t {};
+			struct quad_yaw_effort_t : public Inertia::Model::effort_t {};
+
+
+			struct quad_pid_gains_t
+			{
+				Inertia::Components::Control::Pid::euler_pid_gain_t OrientationGains;
+				Inertia::Components::Control::Pid::euler_pid_gain_t AngularVelocityGains;
 			};
 
 			struct IQuadDriver
 				: public Inertia::Components::DataSource::IDataSource<quad_stabilization_effort_t>
-				, public Inertia::Components::DataSource::IDataSource<power_effort_t>
+				, public Inertia::Components::DataSource::IDataSource<quad_power_effort_t>
+				, public Inertia::Components::DataSource::IDataSource<quad_pitch_effort_t>
+				, public Inertia::Components::DataSource::IDataSource<quad_roll_effort_t>
+				, public Inertia::Components::DataSource::IDataSource<quad_yaw_effort_t>
 			{
-				virtual void SetQuadCommand(const QuadCommandStruct& command) = 0;
+				~IQuadDriver() = default;
 
-				//virtual bool GetQuadStabilizationEffort(effort_t& data) = 0;
-
-				//virtual bool GetQuadPowerEffort(effort_t& data) = 0;
+				virtual void SetQuadCommand(
+					const Inertia::Model::euler_angle_t& orientationTarget,
+					const Inertia::Model::vector32_t& angularVelocityTarget,
+					const actuate_t powerTarget,
+					const bool enabled
+				) = 0;
 			};
 		}
 	}
