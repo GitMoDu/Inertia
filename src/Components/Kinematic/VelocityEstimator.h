@@ -33,7 +33,6 @@ namespace Inertia
 				IntegerSignal::Filters::LowPassI32<LowPassFilterFactor> VelocityFilterX{};
 				IntegerSignal::Filters::LowPassI32<LowPassFilterFactor> VelocityFilterY{};
 
-				Inertia::Model::timestamped_velocity_t FilteredVelocity{};
 				Inertia::Model::timestamped_velocity_t LastVelocity{};
 				bool HasVelocity = false;
 				Inertia::Model::timestamped_position_t LastTranslation{};
@@ -68,13 +67,18 @@ namespace Inertia
 
 				bool GetData(Inertia::Model::timestamped_velocity_t& out_data) override
 				{
-					out_data = FilteredVelocity;
+					out_data.x = VelocityFilterX.Get();
+					out_data.y = VelocityFilterY.Get();
+					out_data.timestamp = LastVelocity.timestamp;
+
 					return HasVelocity;
 				}
 
 				bool GetDataRaw(Inertia::Model::timestamped_velocity_t& out_data)
 				{
 					out_data = LastVelocity;
+					out_data.timestamp = LastVelocity.timestamp;
+
 					return HasVelocity;
 				}
 
@@ -106,9 +110,6 @@ namespace Inertia
 
 						VelocityFilterX.Step();
 						VelocityFilterY.Step();
-
-						FilteredVelocity.x = VelocityFilterX.Get();
-						FilteredVelocity.y = VelocityFilterY.Get();
 
 						LastTranslation = translation;
 					}

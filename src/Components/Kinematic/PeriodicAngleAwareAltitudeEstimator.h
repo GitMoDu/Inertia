@@ -14,7 +14,7 @@ namespace Inertia
 			/// Estimates altitude by combining ground distance sensor readings with orientation data to compute angle-compensated altitude using pitch and roll corrections.
 			/// </summary>
 			/// <typeparam name="LowPassFilterFactor">The low-pass filter factor applied to altitude readings for smoothing. Higher values provide more filtering. Default is 3.</typeparam>
-			template<uint8_t LowPassFilterFactor = 3>
+			template<uint8_t LowPassFilterFactor = 2>
 			class PeriodicAngleAwareAltitudeEstimator
 				: public Inertia::Components::Lifecycle::IPeriodicDriver
 				, public Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_quality_range16_t
@@ -129,7 +129,6 @@ namespace Inertia
 							}
 							else
 							{
-								AltitudeFilter.Set(0);
 								HasAltitude = false;
 							}
 
