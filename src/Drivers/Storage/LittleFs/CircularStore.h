@@ -221,12 +221,27 @@ namespace Inertia
 						return HeaderSize + static_cast<size_t>(StoredCapacity) * RecordSize;
 					}
 
+					static bool GetFilesystemSpace(size_t& totalBytes, size_t& usedBytes)
+					{
+#if defined(ARDUINO_ARCH_ESP32)
+						totalBytes = LittleFS.totalBytes();
+						usedBytes = LittleFS.usedBytes();
+#else
+						FSInfo info{};
+						if (!LittleFS.info(info)) { return false; }
+						totalBytes = info.totalBytes;
+						usedBytes = info.usedBytes;
+#endif
+						return true;
+					}
+
 					bool ResetStorage()
 					{
 						if (Path == nullptr) { return false; }
 
-						FSInfo info{};
-						if (!LittleFS.info(info)) { return false; }
+						size_t totalBytes = 0;
+						size_t usedBytes = 0;
+						if (!GetFilesystemSpace(totalBytes, usedBytes)) { return false; }
 
 						const size_t fileSize = GetFileSize();
 						size_t reclaimable = 0;
@@ -236,8 +251,8 @@ namespace Inertia
 							if (f) { reclaimable = f.size(); f.close(); }
 						}
 
-						const size_t available = (info.totalBytes > info.usedBytes
-							? info.totalBytes - info.usedBytes : 0) + reclaimable;
+						const size_t available = (totalBytes > usedBytes
+							? totalBytes - usedBytes : 0) + reclaimable;
 
 						if (available < fileSize) { return false; }
 
