@@ -167,6 +167,10 @@ namespace Inertia
 									return true;
 								}
 
+								typename StripColorModelType::color_t* GetColorBuffer() override { return Colors; }
+								const typename StripColorModelType::color_t* GetColorBuffer() const override { return Colors; }
+								uint16_t GetColorCount() const override { return LedCount; }
+
 								bool Push() override
 								{
 									if (!Started || !IsReady())

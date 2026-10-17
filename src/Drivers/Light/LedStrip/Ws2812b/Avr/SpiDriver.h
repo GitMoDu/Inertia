@@ -143,6 +143,10 @@ namespace Inertia
 									return true;
 								}
 
+								OutputFormat::color_t* GetColorBuffer() override { return Colors; }
+								const OutputFormat::color_t* GetColorBuffer() const override { return Colors; }
+								uint16_t GetColorCount() const override { return LedCount; }
+
 								bool Push() override
 								{
 									if (!Started) return false;
