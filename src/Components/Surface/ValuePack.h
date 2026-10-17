@@ -13,6 +13,71 @@ namespace Inertia
 			namespace Abstract
 			{
 				/// <summary>
+				/// Packs an even number of 4-bit values into the minimum whole-byte storage.
+				/// Variants for unsigned and signed values are provided.
+				/// Unsigned values have a range of 0 to 15.
+				/// Signed values are stored in two's complement form, with a range of -8 to 7.
+				/// </summary>
+				template<uint8_t ValueCount>
+				class BlockPackNx4
+				{
+				public:
+					static constexpr uint8_t RawMax = 0x0Fu;
+					static constexpr uint8_t ByteCount = ValueCount / 2;
+
+				public:
+					uint8_t Data[ByteCount]{};
+
+				public:
+					BlockPackNx4() = default;
+
+				protected:
+					static constexpr int8_t SignedMin = -8;
+					static constexpr int8_t SignedMax = 7;
+
+					template<uint8_t ValueIndex>
+					uint8_t GetRaw() const
+					{
+						static_assert((ValueCount & 1u) == 0, "ValueCount must be even.");
+						static_assert(ValueCount > 0, "ValueCount must be greater than zero.");
+						static_assert(ValueIndex < ValueCount, "ValueIndex must be in range.");
+
+						constexpr uint8_t byteIndex = ValueIndex / 2;
+						return ((ValueIndex & 1) == 0)
+							? static_cast<uint8_t>(Data[byteIndex] >> 4)
+							: static_cast<uint8_t>(Data[byteIndex] & RawMax);
+					}
+
+					template<uint8_t ValueIndex>
+					void SetRaw(const uint8_t value)
+					{
+						static_assert((ValueCount & 1u) == 0, "ValueCount must be even.");
+						static_assert(ValueCount > 0, "ValueCount must be greater than zero.");
+						static_assert(ValueIndex < ValueCount, "ValueIndex must be in range.");
+						const uint8_t packed = IntegerSignal::LimitValue<uint8_t, 0, RawMax>(value);
+						constexpr uint8_t byteIndex = ValueIndex / 2;
+
+						if ((ValueIndex & 1) == 0)
+						{
+							Data[byteIndex] = static_cast<uint8_t>((Data[byteIndex] & RawMax) | (packed << 4));
+						}
+						else
+						{
+							Data[byteIndex] = static_cast<uint8_t>((Data[byteIndex] & 0xF0u) | packed);
+						}
+					}
+				};
+
+				class BlockPack2x4_1 : public BlockPackNx4<2> {};
+				class BlockPack4x4_2 : public BlockPackNx4<4> {};
+				class BlockPack6x4_3 : public BlockPackNx4<6> {};
+				class BlockPack8x4_4 : public BlockPackNx4<8> {};
+				class BlockPack10x4_5 : public BlockPackNx4<10> {};
+				class BlockPack12x4_6 : public BlockPackNx4<12> {};
+				class BlockPack14x4_7 : public BlockPackNx4<14> {};
+				class BlockPack16x4_8 : public BlockPackNx4<16> {};
+
+				/// <summary>
 				/// Packs 4 12-bit values into 6 bytes.
 				/// Variants for unsigned and signed values are provided.
 				/// Unsigned values have a range of 0 to 4095.
@@ -376,7 +441,105 @@ namespace Inertia
 								normalized)));
 					}
 				};
+
+				template<typename block_pack_t>
+				struct ValuePackNx4 : block_pack_t
+				{
+				protected:
+					template<uint8_t ValueIndex>
+					uint8_t GetUnsignedLimitedValue() const
+					{
+						using codec_t = LimitedValueCodec<uint8_t, block_pack_t::RawMax, uint8_t, 0, block_pack_t::RawMax>;
+						return codec_t::Decode(this->template GetRaw<ValueIndex>());
+					}
+
+					template<uint8_t ValueIndex>
+					void SetUnsignedLimitedValue(const uint8_t value)
+					{
+						using codec_t = LimitedValueCodec<uint8_t, block_pack_t::RawMax, uint8_t, 0, block_pack_t::RawMax>;
+						this->template SetRaw<ValueIndex>(codec_t::Encode(value));
+					}
+
+					template<uint8_t ValueIndex>
+					int8_t GetSignedLimitedValue() const
+					{
+						using codec_t = LimitedValueCodec<uint8_t, block_pack_t::RawMax, int8_t, block_pack_t::SignedMin, block_pack_t::SignedMax>;
+						return codec_t::Decode(this->template GetRaw<ValueIndex>());
+					}
+
+					template<uint8_t ValueIndex>
+					void SetSignedLimitedValue(const int8_t value)
+					{
+						using codec_t = LimitedValueCodec<uint8_t, block_pack_t::RawMax, int8_t, block_pack_t::SignedMin, block_pack_t::SignedMax>;
+						this->template SetRaw<ValueIndex>(codec_t::Encode(value));
+					}
+
+					template<uint8_t ValueIndex>
+					uint8_t GetUnsignedMaskedValue() const
+					{
+						using codec_t = MaskedValueCodec<uint8_t, block_pack_t::RawMax, uint8_t, 0, block_pack_t::RawMax>;
+						return codec_t::Decode(this->template GetRaw<ValueIndex>());
+					}
+
+					template<uint8_t ValueIndex>
+					void SetUnsignedMaskedValue(const uint8_t value)
+					{
+						using codec_t = MaskedValueCodec<uint8_t, block_pack_t::RawMax, uint8_t, 0, block_pack_t::RawMax>;
+						this->template SetRaw<ValueIndex>(codec_t::Encode(value));
+					}
+
+					template<uint8_t ValueIndex>
+					int8_t GetSignedMaskedValue() const
+					{
+						using codec_t = MaskedValueCodec<uint8_t, block_pack_t::RawMax, int8_t, block_pack_t::SignedMin, block_pack_t::SignedMax>;
+						return codec_t::Decode(this->template GetRaw<ValueIndex>());
+					}
+
+					template<uint8_t ValueIndex>
+					void SetSignedMaskedValue(const int8_t value)
+					{
+						using codec_t = MaskedValueCodec<uint8_t, block_pack_t::RawMax, int8_t, block_pack_t::SignedMin, block_pack_t::SignedMax>;
+						this->template SetRaw<ValueIndex>(codec_t::Encode(value));
+					}
+
+					template<uint8_t ValueIndex, uint8_t MinValue, uint8_t MaxValue>
+					uint8_t GetUnsignedScaledValue() const
+					{
+						using codec_t = ScaledValueCodec<uint8_t, block_pack_t::RawMax, uint8_t, MinValue, MaxValue>;
+						return codec_t::Decode(this->template GetRaw<ValueIndex>());
+					}
+
+					template<uint8_t ValueIndex, uint8_t MinValue, uint8_t MaxValue>
+					void SetUnsignedScaledValue(const uint8_t value)
+					{
+						using codec_t = ScaledValueCodec<uint8_t, block_pack_t::RawMax, uint8_t, MinValue, MaxValue>;
+						this->template SetRaw<ValueIndex>(codec_t::Encode(value));
+					}
+
+					template<uint8_t ValueIndex, int8_t MinValue, int8_t MaxValue>
+					int8_t GetSignedScaledValue() const
+					{
+						using codec_t = ScaledValueCodec<uint8_t, block_pack_t::RawMax, int8_t, MinValue, MaxValue>;
+						return codec_t::Decode(this->template GetRaw<ValueIndex>());
+					}
+
+					template<uint8_t ValueIndex, int8_t MinValue, int8_t MaxValue>
+					void SetSignedScaledValue(const int8_t value)
+					{
+						using codec_t = ScaledValueCodec<uint8_t, block_pack_t::RawMax, int8_t, MinValue, MaxValue>;
+						this->template SetRaw<ValueIndex>(codec_t::Encode(value));
+					}
+				};
 			}
+
+			using ValuePack2x4_1 = Template::ValuePackNx4<Abstract::BlockPack2x4_1>;
+			using ValuePack4x4_2 = Template::ValuePackNx4<Abstract::BlockPack4x4_2>;
+			using ValuePack6x4_3 = Template::ValuePackNx4<Abstract::BlockPack6x4_3>;
+			using ValuePack8x4_4 = Template::ValuePackNx4<Abstract::BlockPack8x4_4>;
+			using ValuePack10x4_5 = Template::ValuePackNx4<Abstract::BlockPack10x4_5>;
+			using ValuePack12x4_6 = Template::ValuePackNx4<Abstract::BlockPack12x4_6>;
+			using ValuePack14x4_7 = Template::ValuePackNx4<Abstract::BlockPack14x4_7>;
+			using ValuePack16x4_8 = Template::ValuePackNx4<Abstract::BlockPack16x4_8>;
 
 			struct ValuePack4x12_6 : Abstract::BlockPack4x12_6
 			{
@@ -469,6 +632,18 @@ namespace Inertia
 			struct ValuePack3x21_8 : Abstract::BlockPack3x21_8
 			{
 			protected:
+				bool GetFlag() const
+				{
+					return (this->Data[7] & 0x80u) != 0;
+				}
+
+				void SetFlag(const bool value)
+				{
+					this->Data[7] = value
+						? static_cast<uint8_t>(this->Data[7] | 0x80u)
+						: static_cast<uint8_t>(this->Data[7] & 0x7Fu);
+				}
+
 				template<uint8_t ValueIndex>
 				uint32_t GetUnsignedLimitedValue() const
 				{
