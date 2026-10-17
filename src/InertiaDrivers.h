@@ -64,10 +64,17 @@
 
 // LED strip drivers for addressable LEDs model.
 #include "Drivers/Light/LedStrip/Ws2812b/Model.h"
+#include "Drivers/Light/LedStrip/Ws2812b/Avr/BitBangDriver.h"
+#include "Drivers/Light/LedStrip/Ws2812b/Avr/SpiDriver.h"
+#include "Drivers/Light/LedStrip/Ws2812b/RaspberryPiPico/PioDriver.h"
+
+#include "Drivers/Light/LedStrip/Sk6812/Model.h"
+#include "Drivers/Light/LedStrip/Sk6812/Avr/BitBangDriver.h"
+#include "Drivers/Light/LedStrip/Sk6812/Avr/SpiDriver.h"
+#include "Drivers/Light/LedStrip/Sk6812/Stm32/BitBangDriver.h"
+#include "Drivers/Light/LedStrip/Sk6812/Stm32/DmaDriver.h"
 
 #include "Drivers/Adc/RaspberryPiPico/AdcDriver.h"
 
-// LED strip drivers for addressable LEDs using PIO on Raspberry Pi Pico.
-#include "Drivers/Light/LedStrip/Ws2812b/RaspberryPiPico/PioDriver.h"
 
 #endif

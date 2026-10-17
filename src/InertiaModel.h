@@ -69,6 +69,7 @@
 
 // Light model for LED, strips, etc.
 #include "Components/Light/Model.h"
+#include "Components/Light/Strip/Model.h"
 
 // ADC model.
 #include "Components/Adc/Model.h"
