@@ -76,5 +76,7 @@
 
 #include "Drivers/Adc/RaspberryPiPico/AdcDriver.h"
 
+// TB6612FNG H-bridge actuator driver.
+#include "Drivers/PowerTrain/Tb6612Fng/Driver.h"
 
 #endif
