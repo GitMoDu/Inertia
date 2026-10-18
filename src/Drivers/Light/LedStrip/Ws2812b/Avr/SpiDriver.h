@@ -89,6 +89,7 @@ namespace Inertia
 							template<uint16_t LedCount, typename EncodingType>
 							class SpiTransport : public Inertia::Components::Light::ILightColorDriver<Inertia::Drivers::Light::LedStrip::Ws2812b::OutputFormat::Grb>
 							{
+							private:
 								using OutputFormat = Inertia::Drivers::Light::LedStrip::Ws2812b::OutputFormat::Grb;
 								static_assert(LedCount > 0, "LedCount must be greater than zero.");
 								static_assert(sizeof(OutputFormat::color_t) == OutputFormat::ChannelCount,

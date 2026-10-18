@@ -11,44 +11,47 @@ namespace Inertia
 		{
 			namespace Mpu6050
 			{
-				template<typename SharedDriverType>
-				class MotionStepDriver : public Inertia::Components::Lifecycle::IPeriodicDriver,
-					public Inertia::Components::DataSource::IDataSource<Model::timestamped_acceleration_t>,
-					public Inertia::Components::DataSource::IDataSource<Model::timestamped_angular_velocity_t>
+				namespace Motion
 				{
-				private:
-					SharedDriverType& SharedDriver;
-
-				public:
-					MotionStepDriver(SharedDriverType& sharedDriver)
-						: SharedDriver(sharedDriver)
-					{}
-
-					bool Start() final
+					template<typename SharedDriverType>
+					class StepDriver : public Inertia::Components::Lifecycle::IPeriodicDriver,
+						public Inertia::Components::DataSource::IDataSource<Model::timestamped_acceleration_t>,
+						public Inertia::Components::DataSource::IDataSource<Model::timestamped_angular_velocity_t>
 					{
-						return SharedDriver.Start();
-					}
+					private:
+						SharedDriverType& SharedDriver;
 
-					void Stop() final
-					{
-						SharedDriver.Stop();
-					}
+					public:
+						StepDriver(SharedDriverType& sharedDriver)
+							: SharedDriver(sharedDriver)
+						{}
 
-					void Step() final
-					{
-						SharedDriver.StepMotion();
-					}
+						bool Start() final
+						{
+							return SharedDriver.Start();
+						}
 
-					bool GetData(Model::timestamped_acceleration_t& data) final
-					{
-						return SharedDriver.GetAccelerationData(data);
-					}
+						void Stop() final
+						{
+							SharedDriver.Stop();
+						}
 
-					bool GetData(Model::timestamped_angular_velocity_t& data) final
-					{
-						return SharedDriver.GetAngularVelocityData(data);
-					}
-				};
+						void Step() final
+						{
+							SharedDriver.StepMotion();
+						}
+
+						bool GetData(Model::timestamped_acceleration_t& data) final
+						{
+							return SharedDriver.GetAccelerationData(data);
+						}
+
+						bool GetData(Model::timestamped_angular_velocity_t& data) final
+						{
+							return SharedDriver.GetAngularVelocityData(data);
+						}
+					};
+				}
 			}
 		}
 	}

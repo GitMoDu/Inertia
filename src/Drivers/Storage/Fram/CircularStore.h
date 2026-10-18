@@ -14,8 +14,6 @@ namespace Inertia
 			{
 				using namespace Inertia::Components::Storage::Fram;
 
-				
-
 				template<typename TRecord, uint32_t TCapacity, uint16_t TVersion = 1, uint16_t TBaseAddress = 0>
 				class CircularStore
 				{

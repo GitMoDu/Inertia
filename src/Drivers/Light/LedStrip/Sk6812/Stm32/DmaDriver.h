@@ -23,6 +23,7 @@ namespace Inertia
 							template<uint16_t LedCount, typename StripColorModelType>
 							class SpiDmaTransport : public Inertia::Components::Light::ILightColorDriver<StripColorModelType>
 							{
+							private:
 								struct SpiEncoding
 								{
 									static constexpr uint8_t BitsPerNativeBit = 3;

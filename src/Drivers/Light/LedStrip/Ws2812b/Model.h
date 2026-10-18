@@ -14,6 +14,8 @@ namespace Inertia
 			{
 				namespace Ws2812b
 				{
+					static constexpr uint32_t LOG_TAG = 1272184249;
+
 					namespace OutputFormat
 					{
 						using Grb = Inertia::Components::Light::Strip::Model::Color::Grb;

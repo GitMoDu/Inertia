@@ -1,6 +1,8 @@
 #ifndef _INERTIA_DRIVERS_STORAGE_FLASH_MAPLE_INTERNAL_FLASH_h
 #define _INERTIA_DRIVERS_STORAGE_FLASH_MAPLE_INTERNAL_FLASH_h
 
+#include "Model.h"
+
 #if defined(ARDUINO_ARCH_STM32F1) && defined(__STM32F1__) && !defined(STM32_CORE_VERSION)
 
 #include <wirish.h>

@@ -14,6 +14,9 @@
 // Storage driver for LittleFS on SPIFFS or built in flash. Ignored if platform does not support LittleFS.
 #include "Drivers/Storage/LittleFs/FileSystem.h"
 
+// Maple STM32F1 internal flash backend.
+#include "Drivers/Storage/Flash/Stm32/Maple/InternalFlash.h"
+
 // Log repository drivers.
 #include "Drivers/Log/Repository/LittleFsLogRepository.h"
 #include "Drivers/Log/Repository/SerialOutRepository.h"

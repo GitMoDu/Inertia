@@ -48,6 +48,9 @@
 #include "Components/Storage/FlashJournal/Journal.h"
 #include "Components/Storage/FlashJournal/AsyncTask.h"
 
+// STM32 Maple internal flash model.
+#include "Drivers/Storage/Flash/Stm32/Maple/Model.h"
+
 // Boot counter model.
 #include "Components/BootCounter/Model.h"
 

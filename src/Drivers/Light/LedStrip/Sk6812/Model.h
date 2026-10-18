@@ -13,6 +13,8 @@ namespace Inertia
 			{
 				namespace Sk6812
 				{
+					static constexpr uint32_t LOG_TAG = 3046117616;
+
 					namespace OutputFormat
 					{
 						using Rgb = Inertia::Components::Light::Strip::Model::Color::Grb;

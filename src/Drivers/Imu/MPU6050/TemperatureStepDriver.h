@@ -11,38 +11,41 @@ namespace Inertia
 		{
 			namespace Mpu6050
 			{
-				template<typename SharedDriverType>
-				class TemperatureStepDriver : public Inertia::Components::Lifecycle::IPeriodicDriver,
-					public Inertia::Components::DataSource::IDataSource<Model::timestamped_temperature_t>
+				namespace Temperature
 				{
-				private:
-					SharedDriverType& SharedDriver;
-
-				public:
-					TemperatureStepDriver(SharedDriverType& sharedDriver)
-						: SharedDriver(sharedDriver)
-					{}
-
-					bool Start() final
+					template<typename SharedDriverType>
+					class StepDriver : public Inertia::Components::Lifecycle::IPeriodicDriver,
+						public Inertia::Components::DataSource::IDataSource<Model::timestamped_temperature_t>
 					{
-						return SharedDriver.Start();
-					}
+					private:
+						SharedDriverType& SharedDriver;
 
-					void Stop() final
-					{
-						SharedDriver.Stop();
-					}
+					public:
+						StepDriver(SharedDriverType& sharedDriver)
+							: SharedDriver(sharedDriver)
+						{}
 
-					void Step() final
-					{
-						SharedDriver.StepTemperatureWithRefresh();
-					}
+						bool Start() final
+						{
+							return SharedDriver.Start();
+						}
 
-					bool GetData(Model::timestamped_temperature_t& data) final
-					{
-						return SharedDriver.GetTemperatureData(data);
-					}
-				};
+						void Stop() final
+						{
+							SharedDriver.Stop();
+						}
+
+						void Step() final
+						{
+							SharedDriver.StepTemperatureWithRefresh();
+						}
+
+						bool GetData(Model::timestamped_temperature_t& data) final
+						{
+							return SharedDriver.GetTemperatureData(data);
+						}
+					};
+				}
 			}
 		}
 	}

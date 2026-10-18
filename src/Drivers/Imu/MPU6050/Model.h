@@ -2,7 +2,6 @@
 #define _INERTIA_DRIVERS_IMU_MPU6050_DEVICE_MODEL_h
 
 #include "../../../Components/Core/Primitives.h"
-#include "../../../Components/HardwareInterface/I2c/Model.h"
 
 namespace Inertia
 {
@@ -13,6 +12,26 @@ namespace Inertia
 			namespace Mpu6050
 			{
 				static constexpr uint32_t LOG_TAG = 867172820; // Random unique tag for Mpu6050 logs.
+
+				namespace Device
+				{
+					static constexpr uint32_t LOG_TAG = 3456229009;
+				}
+
+				namespace Shared
+				{
+					static constexpr uint32_t LOG_TAG = 3267839951;
+				}
+				namespace Motion
+				{
+					static constexpr uint32_t LOG_TAG = 1983636582;
+				}
+
+				namespace Temperature
+				{
+					static constexpr uint32_t LOG_TAG = 3868427060;
+				}
+
 
 				enum class LogCodeEnum : uint8_t
 				{
@@ -29,7 +48,6 @@ namespace Inertia
 						return entry.Value;
 					}
 				};
-
 
 				/// <summary>
 				/// Accelerometer full-scale range.

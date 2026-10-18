@@ -13,6 +13,8 @@ namespace Inertia
 			{
 				namespace Model
 				{
+					static constexpr uint32_t LOG_TAG = 3240772913;
+
 					namespace Color
 					{
 						enum class Channel : uint8_t

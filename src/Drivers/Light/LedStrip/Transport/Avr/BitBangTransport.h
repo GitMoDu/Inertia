@@ -144,6 +144,7 @@ namespace Inertia
 						template<uint8_t OutputPin, uint16_t LedCount, typename StripColorModelType>
 						class BitBangTransport : public Inertia::Components::Light::ILightColorDriver<StripColorModelType>
 						{
+						private:
 							static constexpr uint8_t InvalidPin = UINT8_MAX;
 							static constexpr size_t NativeByteCount = size_t(LedCount) * StripColorModelType::ChannelCount;
 							static_assert(LedCount > 0, "LedCount must be greater than zero.");

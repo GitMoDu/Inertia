@@ -11,6 +11,8 @@ namespace Inertia
 		{
 			namespace FlashJournal
 			{
+				static constexpr uint32_t LOG_TAG = 2697222751;
+
 				/// <summary>Commit marker written last to identify a complete flash-journal record.</summary>
 				static constexpr uint16_t CommitMarker = 0xA55A;
 
