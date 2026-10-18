@@ -1,8 +1,6 @@
 #ifndef _INERTIA_COMPONENTS_STORAGE_FLASH_JOURNAL_h
 #define _INERTIA_COMPONENTS_STORAGE_FLASH_JOURNAL_h
 
-#include <type_traits>
-
 #include "Model.h"
 
 namespace Inertia
@@ -478,7 +476,8 @@ namespace Inertia
 					using SaveOperation = typename ByteJournal::SaveOperation;
 					using SaveStepResult = typename ByteJournal::SaveStepResult;
 
-					static_assert(std::is_trivially_copyable<Entry>::value,
+					static_assert(!IntegerSignal::TypeTraits::TypeProperties::is_trivially_copyable<Entry>::is_supported ||
+						IntegerSignal::TypeTraits::TypeProperties::is_trivially_copyable<Entry>::value,
 						"FlashJournal entries must be trivially copyable.");
 					static_assert(sizeof(Entry) <= 0xFFFF,
 						"FlashJournal entries must fit the journal payload size.");
