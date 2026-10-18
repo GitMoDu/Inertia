@@ -43,6 +43,11 @@
 // LittleFS storage model.
 #include "Components/Storage/LittleFs/Model.h"
 
+// Append-only flash journal model.
+#include "Components/Storage/FlashJournal/Model.h"
+#include "Components/Storage/FlashJournal/Journal.h"
+#include "Components/Storage/FlashJournal/AsyncTask.h"
+
 // Boot counter model.
 #include "Components/BootCounter/Model.h"
 
