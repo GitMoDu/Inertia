@@ -27,10 +27,49 @@ using JournalType = Inertia::Components::Storage::FlashJournal::FlashJournal<
 using AsyncJournalTask = Inertia::Components::Storage::FlashJournal::AsyncFlashJournalTask<
 	JournalType, JournalQueueCapacity>;
 
-const uint8_t JournalKey[] = { 'F', 'l', 'a', 's', 'h' };
+// The journal seed is used to detect whether the journal contents are compatible with the current firmware. Any random value can be used, but it should be changed whenever the journal entry structure changes.
+constexpr uint32_t JournalSeed = 0x2C5F1414;
+static_assert(JournalType::GetGeometry().StartAddress == JournalType::GetJournalStartAddress(),
+	"Flash-journal geometry must be available at compile time.");
 TS::Scheduler Scheduler{};
-JournalType JournalStorage(JournalKey, sizeof(JournalKey));
+JournalType JournalStorage(JournalSeed);
 AsyncJournalTask JournalTask(Scheduler, JournalStorage);
+
+uint32_t GetFixtureChecksum(const uint32_t sequence, const JournalEntry& entry)
+{
+	Fletcher32 hasher;
+	hasher.begin(uint16_t(JournalSeed), uint16_t(JournalSeed >> 16));
+	hasher.add(uint16_t(sequence));
+	hasher.add(uint16_t(sequence >> 16));
+	for (size_t index = 0; index < JournalEntrySize; index += 2)
+	{
+		uint16_t word = entry.Bytes[index];
+		if (index + 1 < JournalEntrySize)
+			word |= uint16_t(entry.Bytes[index + 1]) << 8;
+		hasher.add(word);
+	}
+	return hasher.getFletcher();
+}
+
+bool ProgramRecordFixture(const uint32_t address, const uint32_t sequence, const JournalEntry& entry)
+{
+	if (!RamFlash::ProgramHalfWord(address, uint16_t(sequence))
+		|| !RamFlash::ProgramHalfWord(address + 2, uint16_t(sequence >> 16)))
+		return false;
+	for (uint16_t offset = 0; offset < JournalType::GetPaddedPayloadSize(); offset += 2)
+	{
+		const uint8_t low = offset < JournalEntrySize ? entry.Bytes[offset] : 0xFF;
+		const uint8_t high = offset + 1 < JournalEntrySize ? entry.Bytes[offset + 1] : 0xFF;
+		if (!RamFlash::ProgramHalfWord(address + 4 + offset, uint16_t(low | (uint16_t(high) << 8))))
+			return false;
+	}
+	const uint32_t checksumAddress = address + 4 + JournalType::GetPaddedPayloadSize();
+	const uint32_t checksum = GetFixtureChecksum(sequence, entry);
+	return RamFlash::ProgramHalfWord(checksumAddress, uint16_t(checksum))
+		&& RamFlash::ProgramHalfWord(checksumAddress + 2, uint16_t(checksum >> 16))
+		&& RamFlash::ProgramHalfWord(checksumAddress + 4,
+			Inertia::Components::Storage::FlashJournal::CommitMarker);
+}
 
 bool RunJournalTests()
 {
@@ -44,49 +83,228 @@ bool RunJournalTests()
 	passed = RamFlash::ProgramHalfWord(erasedPage, 0) && passed;
 	JournalEntry first{};
 	JournalEntry second{};
-	JournalEntry loaded{};
 	for (size_t index = 0; index < JournalEntrySize; ++index)
 	{
 		first.Bytes[index] = static_cast<uint8_t>(index + 1);
 		second.Bytes[index] = static_cast<uint8_t>(index + 31);
 	}
 
-	uint32_t sequence = 0;
 	passed = JournalStorage.Save(first) && passed;
 	passed = JournalStorage.Save(second) && passed;
-	passed = JournalStorage.Load(loaded, sequence) && sequence == 2
-		&& memcmp(loaded.Bytes, second.Bytes, JournalEntrySize) == 0 && passed;
+	JournalType::LoadResult loadResult = JournalStorage.Load();
+	const JournalType::Snapshot* snapshot = loadResult.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 2
+		&& memcmp(snapshot->Value.Bytes, second.Bytes, JournalEntrySize) == 0 && passed;
 
-	const uint8_t differentKey[] = { 'O', 't', 'h', 'e', 'r' };
-	JournalType mismatchedKey(differentKey, sizeof(differentKey));
-	JournalType invalidKey(nullptr, 0);
-	passed = !mismatchedKey.Load(loaded, sequence) && passed;
-	passed = !invalidKey.Save(first) && !invalidKey.Load(loaded, sequence) && passed;
+	JournalType mismatchedSeed(JournalSeed + 1);
+	passed = mismatchedSeed.Load().Status() == JournalType::LoadStatus::NoValidSnapshot && passed;
 
 	const uint32_t secondRecord = JournalType::GetJournalStartAddress() + JournalType::GetRecordSize();
 	RamFlash::Corrupt(secondRecord + sizeof(uint32_t), 0);
-	passed = JournalStorage.Load(loaded, sequence) && sequence == 1
-		&& memcmp(loaded.Bytes, first.Bytes, JournalEntrySize) == 0 && passed;
+	loadResult = JournalStorage.Load();
+	snapshot = loadResult.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 1
+		&& memcmp(snapshot->Value.Bytes, first.Bytes, JournalEntrySize) == 0 && passed;
 
 	RamFlash::Reset();
 	passed = JournalStorage.Save(first) && passed;
 	RamFlash::FailAfterWrites(3);
 	passed = !JournalStorage.Save(second) && passed;
 	RamFlash::FailAfterWrites(-1);
-	passed = JournalStorage.Load(loaded, sequence) && sequence == 1
-		&& memcmp(loaded.Bytes, first.Bytes, JournalEntrySize) == 0 && passed;
+	loadResult = JournalStorage.Load();
+	snapshot = loadResult.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 1
+		&& memcmp(snapshot->Value.Bytes, first.Bytes, JournalEntrySize) == 0 && passed;
 
 	RamFlash::Reset();
-	for (uint32_t index = 1; index <= 40; ++index)
+	for (uint32_t index = 1; index <= 320; ++index)
 	{
 		for (size_t byte = 0; byte < JournalEntrySize; ++byte)
 			first.Bytes[byte] = static_cast<uint8_t>(index + byte);
 		passed = JournalStorage.Save(first) && passed;
 	}
-	passed = JournalStorage.Load(loaded, sequence) && sequence == 40 && passed;
+	loadResult = JournalStorage.Load();
+	snapshot = loadResult.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 320 && passed;
+	uint32_t minimumEraseCount = RamFlash::GetPageEraseCount(0);
+	uint32_t maximumEraseCount = minimumEraseCount;
+	for (uint16_t page = 1; page < JournalPageCount; ++page)
+	{
+		minimumEraseCount = minimumEraseCount < RamFlash::GetPageEraseCount(page)
+			? minimumEraseCount : RamFlash::GetPageEraseCount(page);
+		maximumEraseCount = maximumEraseCount > RamFlash::GetPageEraseCount(page)
+			? maximumEraseCount : RamFlash::GetPageEraseCount(page);
+	}
+	passed = maximumEraseCount - minimumEraseCount <= 1 && passed;
 	Serial.println(passed
 		? F("PASS: save/load, bad-key rejection, corruption recovery, interrupted writes, page rotation.")
 		: F("FAIL: flash-journal runtime test."));
+	return passed;
+}
+
+bool RunLoadAndFormatTests()
+{
+	RamFlash::Reset();
+	bool passed = JournalStorage.Load().Status() == JournalType::LoadStatus::NoValidSnapshot;
+	RamFlash::SetStorageAvailable(false);
+	passed = JournalStorage.Load().Status() == JournalType::LoadStatus::StorageUnavailable && passed;
+	RamFlash::SetStorageAvailable(true);
+
+	const uint16_t fixedRecordWords[] =
+	{
+		0x0001, 0x0000, 0x0201, 0x0403, 0x0605, 0x0807, 0x0A09,
+		0x0C0B, 0x0E0D, 0x100F, 0xFF11, 0x4941, 0x43F2, 0xAA55
+	};
+	const uint32_t recordAddress = JournalType::GetJournalStartAddress();
+	for (size_t index = 0; index < sizeof(fixedRecordWords) / sizeof(fixedRecordWords[0]); ++index)
+		passed = RamFlash::ProgramHalfWord(recordAddress + uint32_t(index * 2), fixedRecordWords[index]) && passed;
+	JournalType::LoadResult result = JournalStorage.Load();
+	const JournalType::Snapshot* snapshot = result.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 1 && passed;
+	for (size_t index = 0; index < JournalEntrySize; ++index)
+		passed = snapshot != nullptr && snapshot->Value.Bytes[index] == index + 1 && passed;
+
+	RamFlash::Corrupt(recordAddress + 22, 0);
+	passed = JournalStorage.Load().Status() == JournalType::LoadStatus::NoValidSnapshot && passed;
+
+	RamFlash::Reset();
+	JournalEntry older{};
+	JournalEntry newer{};
+	for (size_t index = 0; index < JournalEntrySize; ++index)
+	{
+		older.Bytes[index] = static_cast<uint8_t>(index + 3);
+		newer.Bytes[index] = static_cast<uint8_t>(index + 73);
+	}
+	passed = ProgramRecordFixture(recordAddress, 0xFFFFFFFEUL, older) && passed;
+	passed = ProgramRecordFixture(recordAddress + JournalType::GetRecordSize(), 1, newer) && passed;
+	result = JournalStorage.Load();
+	snapshot = result.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 1
+		&& memcmp(snapshot->Value.Bytes, newer.Bytes, JournalEntrySize) == 0 && passed;
+	JournalEntry temporaryEntry{};
+	JournalType temporarySeedJournal(JournalSeed + 2);
+	passed = temporarySeedJournal.Save(temporaryEntry)
+		&& temporarySeedJournal.Load().Status() == JournalType::LoadStatus::Loaded && passed;
+	Serial.println(passed
+		? F("PASS: typed load statuses, known Fletcher32 record bytes, checksum rejection, sequence wrap.")
+		: F("FAIL: load and on-flash compatibility test."));
+	return passed;
+}
+
+bool RunInterruptedWriteTests()
+{
+	bool passed = true;
+	JournalEntry previous{};
+	JournalEntry next{};
+	for (size_t index = 0; index < JournalEntrySize; ++index)
+	{
+		previous.Bytes[index] = static_cast<uint8_t>(index + 9);
+		next.Bytes[index] = static_cast<uint8_t>(index + 91);
+	}
+
+	for (int32_t successfulWrites = 0; successfulWrites < 14; ++successfulWrites)
+	{
+		RamFlash::Reset();
+		passed = JournalStorage.Save(previous) && passed;
+		RamFlash::FailAfterWrites(successfulWrites);
+		passed = !JournalStorage.Save(next) && passed;
+		RamFlash::FailAfterWrites(-1);
+		JournalType::LoadResult result = JournalStorage.Load();
+		const JournalType::Snapshot* snapshot = result.GetSnapshot();
+		passed = snapshot != nullptr && snapshot->Sequence == 1
+			&& memcmp(snapshot->Value.Bytes, previous.Bytes, JournalEntrySize) == 0 && passed;
+
+		passed = JournalStorage.Save(next) && passed;
+		result = JournalStorage.Load();
+		snapshot = result.GetSnapshot();
+		passed = snapshot != nullptr && snapshot->Sequence == 2
+			&& memcmp(snapshot->Value.Bytes, next.Bytes, JournalEntrySize) == 0 && passed;
+		const uint32_t expectedSlot = successfulWrites == 0 ? 1 : 2;
+		const uint32_t savedAddress = JournalType::GetJournalStartAddress()
+			+ expectedSlot * JournalType::GetRecordSize();
+		passed = uint32_t(RamFlash::ReadHalfWord(savedAddress)) == 2 && passed;
+		if (successfulWrites != 0)
+			passed = RamFlash::ReadHalfWord(JournalType::GetJournalStartAddress()
+				+ JournalType::GetRecordSize()) != 0xFFFF && passed;
+	}
+
+	RamFlash::Reset();
+	for (uint32_t sequence = 1; sequence <= JournalType::GetSlotsPerPage(); ++sequence)
+		passed = JournalStorage.Save(previous) && passed;
+	JournalType::SaveOperation rotation;
+	JournalStorage.BeginSave(next, rotation);
+	RamFlash::FailAfterErases(0);
+	passed = rotation.Step() == JournalType::SaveStatus::Failed
+		&& rotation.Error() == JournalType::SaveError::FlashFailure && passed;
+	RamFlash::FailAfterErases(-1);
+	JournalType::LoadResult result = JournalStorage.Load();
+	const JournalType::Snapshot* snapshot = result.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == JournalType::GetSlotsPerPage() && passed;
+	passed = JournalStorage.Save(next) && passed;
+	passed = RamFlash::GetPageEraseCount(1) == 1 && passed;
+	Serial.println(passed
+		? F("PASS: programmed-boundary recovery, failed-slot skipping, and rotation erase failure.")
+		: F("FAIL: interrupted write boundary test."));
+	return passed;
+}
+
+bool RunOperationOwnershipTests()
+{
+	RamFlash::Reset();
+	JournalEntry first{};
+	JournalEntry second{};
+	JournalEntry third{};
+	for (size_t index = 0; index < JournalEntrySize; ++index)
+	{
+		first.Bytes[index] = static_cast<uint8_t>(index + 2);
+		second.Bytes[index] = static_cast<uint8_t>(index + 42);
+		third.Bytes[index] = static_cast<uint8_t>(index + 82);
+	}
+	const uint8_t expectedThirdFirstByte = third.Bytes[0];
+	bool passed = JournalStorage.Save(first);
+	JournalType::SaveOperation firstOperation;
+	JournalType::SaveOperation secondOperation;
+	JournalStorage.BeginSave(second, firstOperation);
+	JournalStorage.BeginSave(third, secondOperation);
+	second.Bytes[0] = 0xFE;
+	third.Bytes[0] = 0xFD;
+	passed = firstOperation.Step() == JournalType::SaveStatus::InProgress && passed;
+	const uint32_t beforeBlockedStep = RamFlash::GetMutationCount();
+	passed = secondOperation.Step() == JournalType::SaveStatus::InProgress && passed;
+	passed = RamFlash::GetMutationCount() == beforeBlockedStep && passed;
+	passed = !JournalStorage.Save(first) && !JournalStorage.ErasePageForMaintenance(0) && passed;
+	uint16_t steps = 0;
+	while (firstOperation.Status() == JournalType::SaveStatus::InProgress && steps++ < 32)
+		firstOperation.Step();
+	steps = 0;
+	while (secondOperation.Status() == JournalType::SaveStatus::InProgress && steps++ < 32)
+		secondOperation.Step();
+	passed = firstOperation.Status() == JournalType::SaveStatus::Completed
+		&& secondOperation.Status() == JournalType::SaveStatus::Completed && passed;
+	passed = firstOperation.Step() == JournalType::SaveStatus::Completed && passed;
+	JournalType::LoadResult result = JournalStorage.Load();
+	const JournalType::Snapshot* snapshot = result.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 3
+		&& snapshot->Value.Bytes[0] == expectedThirdFirstByte && passed;
+
+	{
+		JournalType::SaveOperation incomplete;
+		JournalStorage.BeginSave(second, incomplete);
+		passed = incomplete.Step() == JournalType::SaveStatus::InProgress && passed;
+	}
+	result = JournalStorage.Load();
+	snapshot = result.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 3 && passed;
+	passed = JournalStorage.Save(first) && passed;
+	result = JournalStorage.Load();
+	snapshot = result.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 4 && passed;
+	const uint32_t abandonedSlot = JournalType::GetJournalStartAddress()
+		+ 3 * JournalType::GetRecordSize();
+	passed = RamFlash::ReadHalfWord(abandonedSlot) != 0xFFFF && passed;
+	Serial.println(passed
+		? F("PASS: operation snapshot ownership, writer serialization, terminal steps, abandonment.")
+		: F("FAIL: operation ownership and serialization test."));
 	return passed;
 }
 
@@ -94,30 +312,31 @@ bool RunIncrementalSaveTests()
 {
 	RamFlash::Reset();
 	JournalEntry entry{};
-	JournalEntry loaded{};
 	for (size_t index = 0; index < JournalEntrySize; ++index)
 		entry.Bytes[index] = static_cast<uint8_t>(index + 41);
 
-	JournalType::SaveOperation operation{};
-	bool passed = JournalStorage.BeginSave(entry, operation)
-		&& operation.CurrentPhase == Inertia::Components::Storage::FlashJournal::SavePhaseEnum::Erase;
+	JournalType::SaveOperation operation;
+	JournalStorage.BeginSave(entry, operation);
+	const JournalEntry expected = entry;
+	entry.Bytes[0] = 0xFE;
+	bool passed = operation.Status() == JournalType::SaveStatus::InProgress;
 	bool completed = false;
 	uint16_t steps = 0;
 	while (passed && !completed && steps < 32)
 	{
 		const uint32_t before = RamFlash::GetMutationCount();
-		const JournalType::SaveStepResult result = JournalStorage.SaveStep(entry, operation);
+		const JournalType::SaveStatus result = operation.Step();
 		passed = RamFlash::GetMutationCount() - before <= 1 && passed;
-		completed = result == JournalType::SaveStepResult::Completed;
-		passed = result != JournalType::SaveStepResult::Failed && passed;
+		completed = result == JournalType::SaveStatus::Completed;
+		passed = result != JournalType::SaveStatus::Failed && passed;
 		++steps;
 	}
 
-	uint32_t sequence = 0;
-	passed = completed && steps < 32 && operation.CurrentPhase
-		== Inertia::Components::Storage::FlashJournal::SavePhaseEnum::Completed && passed;
-	passed = JournalStorage.Load(loaded, sequence) && sequence == 1
-		&& memcmp(loaded.Bytes, entry.Bytes, JournalEntrySize) == 0 && passed;
+	passed = completed && steps < 32 && operation.Status() == JournalType::SaveStatus::Completed && passed;
+	JournalType::LoadResult loadResult = JournalStorage.Load();
+	const JournalType::Snapshot* snapshot = loadResult.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 1
+		&& memcmp(snapshot->Value.Bytes, expected.Bytes, JournalEntrySize) == 0 && passed;
 	Serial.println(passed
 		? F("PASS: incremental save state advances by at most one flash mutation per step.")
 		: F("FAIL: incremental flash-journal save test."));
@@ -136,7 +355,6 @@ bool RunAsyncQueueTests()
 	JournalEntry first{};
 	JournalEntry second{};
 	JournalEntry third{};
-	JournalEntry loaded{};
 	for (size_t index = 0; index < JournalEntrySize; ++index)
 	{
 		first.Bytes[index] = static_cast<uint8_t>(index + 1);
@@ -166,12 +384,13 @@ bool RunAsyncQueueTests()
 		delay(1);
 	}
 
-	uint32_t sequence = 0;
 	passed = JournalTask.GetPendingOperationCount() == 0 && passed;
 	passed = JournalTask.GetCompletedOperationCount() - completedBefore == 4 && passed;
 	passed = JournalTask.GetLastOperationSucceeded() && passed;
-	passed = JournalStorage.Load(loaded, sequence) && sequence == 3
-		&& memcmp(loaded.Bytes, third.Bytes, JournalEntrySize) == 0 && passed;
+	JournalType::LoadResult loadResult = JournalStorage.Load();
+	const JournalType::Snapshot* snapshot = loadResult.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 3
+		&& memcmp(snapshot->Value.Bytes, third.Bytes, JournalEntrySize) == 0 && passed;
 	const uint32_t firstRecord = JournalType::GetJournalStartAddress();
 	const uint32_t recordSize = JournalType::GetRecordSize();
 	const uint32_t firstSequence = RamFlash::ReadHalfWord(firstRecord)
@@ -187,8 +406,69 @@ bool RunAsyncQueueTests()
 		const uint8_t byte = uint8_t(word >> ((address & 1) * 8));
 		passed = byte == queuedFirst.Bytes[index] && passed;
 	}
+	uint32_t wraparoundCompletedBefore = JournalTask.GetCompletedOperationCount();
+	for (uint16_t operationIndex = 0; operationIndex <= JournalQueueCapacity; ++operationIndex)
+	{
+		JournalEntry wrappedEntry{};
+		for (size_t index = 0; index < JournalEntrySize; ++index)
+			wrappedEntry.Bytes[index] = static_cast<uint8_t>(operationIndex + index + 111);
+		const JournalEntry expected = wrappedEntry;
+		passed = JournalTask.QueueSave(wrappedEntry) && passed;
+		callbacks = 0;
+		while (JournalTask.GetPendingOperationCount() != 0 && callbacks < 128)
+		{
+			const uint32_t before = RamFlash::GetMutationCount();
+			Scheduler.execute();
+			passed = RamFlash::GetMutationCount() - before <= 1 && passed;
+			++callbacks;
+			delay(1);
+		}
+		passed = JournalTask.GetPendingOperationCount() == 0
+			&& JournalTask.GetCompletedOperationCount() == ++wraparoundCompletedBefore
+			&& JournalTask.GetLastOperationSucceeded() && passed;
+		loadResult = JournalStorage.Load();
+		snapshot = loadResult.GetSnapshot();
+		passed = snapshot != nullptr && snapshot->Sequence == uint32_t(operationIndex + 4)
+			&& memcmp(snapshot->Value.Bytes, expected.Bytes, JournalEntrySize) == 0 && passed;
+	}
+
+	RamFlash::Reset();
+	passed = JournalStorage.Save(first) && passed;
+	RamFlash::FailAfterWrites(0);
+	const bool accepted = JournalTask.QueueSave(second);
+	callbacks = 0;
+	while (JournalTask.GetPendingOperationCount() != 0 && callbacks++ < 16)
+	{
+		Scheduler.execute();
+		delay(1);
+	}
+	RamFlash::FailAfterWrites(-1);
+	passed = accepted && JournalTask.GetPendingOperationCount() == 0
+		&& !JournalTask.GetLastOperationSucceeded()
+		&& JournalTask.GetLastOperationError() == JournalType::SaveError::FlashFailure && passed;
+	loadResult = JournalStorage.Load();
+	snapshot = loadResult.GetSnapshot();
+	passed = snapshot != nullptr && snapshot->Sequence == 1 && passed;
+
+	RamFlash::Reset();
+	passed = RamFlash::ProgramHalfWord(erasedPage, 0) && passed;
+	const uint32_t eraseCompletedBefore = JournalTask.GetCompletedOperationCount();
+	RamFlash::FailAfterErases(0);
+	passed = JournalTask.QueuePageErase(1) && passed;
+	callbacks = 0;
+	while (JournalTask.GetPendingOperationCount() != 0 && callbacks++ < 16)
+	{
+		Scheduler.execute();
+		delay(1);
+	}
+	RamFlash::FailAfterErases(-1);
+	passed = JournalTask.GetPendingOperationCount() == 0
+		&& JournalTask.GetCompletedOperationCount() == eraseCompletedBefore + 1
+		&& !JournalTask.GetLastOperationSucceeded()
+		&& JournalTask.GetLastOperationError() == JournalType::SaveError::FlashFailure
+		&& RamFlash::ReadHalfWord(erasedPage) == 0 && passed;
 	Serial.println(passed
-		? F("PASS: async FIFO queue, page erase, and one flash mutation per callback.")
+		? F("PASS: async FIFO queue, wraparound, page-erase failure, and callback mutation limit.")
 		: F("FAIL: asynchronous flash-journal queue test."));
 	return passed;
 }
@@ -201,22 +481,21 @@ void setup()
 	while (!Serial)
 		;
 	delay(1000);
-	Serial.println(F("FlashJournal setup..."));
+	Serial.println(F("FlashJournal unit tests"));
+
 #if !defined(FLASH_JOURNAL_USE_INTERNAL_FLASH)
 	RamFlash::Reset();
 #endif
-	Serial.println(F("FlashJournal unit tests: send t to run tests."));
+	const bool journalPassed = RunJournalTests();
+	const bool incrementalSavePassed = RunIncrementalSaveTests();
+	const bool loadAndFormatPassed = RunLoadAndFormatTests();
+	const bool interruptedWritePassed = RunInterruptedWriteTests();
+	const bool operationOwnershipPassed = RunOperationOwnershipTests();
+	const bool queuePassed = RunAsyncQueueTests();
+	Serial.println(journalPassed && incrementalSavePassed && loadAndFormatPassed
+		&& interruptedWritePassed && operationOwnershipPassed && queuePassed
+		? F("ALL TESTS PASS") : F("TESTS FAILED"));
 }
 
 void loop()
-{
-	Scheduler.execute();
-	if (Serial.available() && Serial.read() == 't')
-	{
-		const bool journalPassed = RunJournalTests();
-		const bool incrementalSavePassed = RunIncrementalSaveTests();
-		const bool queuePassed = RunAsyncQueueTests();
-		Serial.println(journalPassed && incrementalSavePassed && queuePassed
-			? F("ALL TESTS PASS") : F("TESTS FAILED"));
-	}
-}
+{}

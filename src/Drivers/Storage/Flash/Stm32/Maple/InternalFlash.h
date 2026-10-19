@@ -31,7 +31,7 @@ namespace Inertia
 								PhysicalFlashSizeBytes = 128 * 1024
 							};
 
-							static uint32_t GetFlashBaseAddress()
+							static constexpr uint32_t GetFlashBaseAddress()
 							{
 								return 0x08000000UL;
 							}

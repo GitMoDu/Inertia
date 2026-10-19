@@ -14,10 +14,34 @@ namespace Inertia
 				static constexpr uint32_t LOG_TAG = 2697222751;
 
 				/// <summary>Commit marker written last to identify a complete flash-journal record.</summary>
-				static constexpr uint16_t CommitMarker = 0xA55A;
+				static constexpr uint16_t CommitMarker = 0xAA55;
 
-				/// <summary>Result reported while an incremental journal save is being processed.</summary>
-				enum class SaveStepResultEnum
+				/// <summary>Flash region and record layout reported by a FlashJournal.</summary>
+				struct JournalGeometry
+				{
+					uint32_t StartAddress;
+					uint32_t EndAddress;
+					uint32_t RecordSizeBytes;
+					uint32_t SlotsPerPage;
+					uint16_t PageCount;
+					uint16_t PayloadSizeBytes;
+					uint16_t PaddedPayloadSizeBytes;
+				};
+
+				/// <summary>Result of loading the latest committed journal snapshot.</summary>
+				enum class LoadStatusEnum
+				{
+					Loaded,
+					NoValidSnapshot,
+					StorageUnavailable,
+					EnumCount
+				};
+
+				/// <summary>
+				/// Result of an incremental save operation. Failed means the backend rejected a required operation;
+				/// the backend cannot report a more specific hardware cause.
+				/// </summary>
+				enum class SaveStatusEnum
 				{
 					InProgress,
 					Completed,
@@ -25,13 +49,17 @@ namespace Inertia
 					EnumCount
 				};
 
-				/// <summary>
-				/// Current stage of an incremental flash-journal save:
-				/// NotStarted -> [Erase] -> ProgramSequence -> ProgramPayload -> ProgramChecksum
-				///            -> ProgramCommit -> Verify -> Completed
-				/// Erase is skipped when the current page has an available slot; any failed step ends in Failed.
-				/// </summary>
-				enum class SavePhaseEnum
+				/// <summary>Failure information supported by the journal and its statically bound backend.</summary>
+				enum class SaveErrorEnum
+				{
+					None,
+					StorageUnavailable,
+					FlashFailure,
+					VerificationFailure,
+					EnumCount
+				};
+
+				enum class SaveActionPhaseEnum : uint8_t
 				{
 					NotStarted,
 					Erase,
@@ -40,26 +68,29 @@ namespace Inertia
 					ProgramChecksum,
 					ProgramCommit,
 					Verify,
-					Completed,
-					Failed,
 					EnumCount
 				};
 
-				/// <summary>
-				/// State passed from BeginSave to each SaveStep call. Address, page, and sequence are selected once;
-				/// Offset tracks progress through the sequence and payload fields.
-				/// </summary>
-				struct SaveOperation
+				struct SaveActionState
 				{
-					SavePhaseEnum CurrentPhase = SavePhaseEnum::NotStarted;
 					uint32_t Address = 0;
 					uint32_t PageAddress = 0;
-					uint32_t Sequence = 0;
+					uint32_t SequenceValue = 0;
 					uint16_t Offset = 0;
+					SaveStatusEnum CurrentStatus = SaveStatusEnum::Failed;
+					SaveErrorEnum CurrentError = SaveErrorEnum::None;
+					SaveActionPhaseEnum CurrentPhase = SaveActionPhaseEnum::NotStarted;
+					bool Active = false;
+				};
+
+				struct SaveActionOwner
+				{
+					virtual SaveStatusEnum StepSave(SaveActionState& state, const uint8_t* payload) = 0;
+					virtual void Release(SaveActionState& state) = 0;
+					virtual ~SaveActionOwner() {}
 				};
 			}
 		}
 	}
 }
-
 #endif

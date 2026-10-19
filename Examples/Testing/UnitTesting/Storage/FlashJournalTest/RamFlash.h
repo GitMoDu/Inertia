@@ -8,19 +8,24 @@ class RamFlash
 public:
 	enum
 	{
+#if defined(__AVR__)
+		PageSizeBytes = 128,
+#else
 		PageSizeBytes = 1024,
+#endif
 		PageCount = 4,
 		WordCount = (PageSizeBytes * PageCount) / 2
 	};
 
-	static uint32_t GetFlashBaseAddress()
+	static constexpr uint32_t GetFlashBaseAddress()
 	{
 		return 0x08000000UL;
 	}
 
 	static bool IsStorageRegionAvailable(const uint32_t startAddress, const uint32_t endAddress)
 	{
-		return startAddress >= GetFlashBaseAddress()
+		return StorageAvailable()
+			&& startAddress >= GetFlashBaseAddress()
 			&& endAddress > startAddress
 			&& endAddress <= GetFlashBaseAddress() + PageSizeBytes * PageCount
 			&& (startAddress - GetFlashBaseAddress()) % PageSizeBytes == 0
@@ -54,12 +59,16 @@ public:
 		++EraseOperationCount();
 		if (address < GetFlashBaseAddress()
 			|| (address - GetFlashBaseAddress()) % PageSizeBytes != 0
-			|| address + PageSizeBytes > GetFlashBaseAddress() + PageSizeBytes * PageCount)
+			|| address + PageSizeBytes > GetFlashBaseAddress() + PageSizeBytes * PageCount
+			|| ErasesUntilFailure() == 0)
 			return false;
+		if (ErasesUntilFailure() > 0)
+			--ErasesUntilFailure();
 
 		const size_t firstWord = (address - GetFlashBaseAddress()) / 2;
 		for (size_t index = 0; index < PageSizeBytes / 2; ++index)
 			Words()[firstWord + index] = 0xFFFF;
+		++PageEraseCount()[(address - GetFlashBaseAddress()) / PageSizeBytes];
 		return true;
 	}
 
@@ -68,8 +77,12 @@ public:
 		for (size_t index = 0; index < WordCount; ++index)
 			Words()[index] = 0xFFFF;
 		WritesUntilFailure() = -1;
+		ErasesUntilFailure() = -1;
+		StorageAvailable() = true;
 		ProgramOperationCount() = 0;
 		EraseOperationCount() = 0;
+		for (size_t index = 0; index < PageCount; ++index)
+			PageEraseCount()[index] = 0;
 	}
 
 	static uint32_t GetMutationCount()
@@ -82,10 +95,43 @@ public:
 		WritesUntilFailure() = writes;
 	}
 
+	static void FailAfterErases(const int32_t erases)
+	{
+		ErasesUntilFailure() = erases;
+	}
+
+	static uint32_t GetPageEraseCount(const uint16_t pageIndex)
+	{
+		return pageIndex < PageCount ? PageEraseCount()[pageIndex] : 0;
+	}
+
+	static void SetStorageAvailable(const bool available)
+	{
+		StorageAvailable() = available;
+	}
+
 	static void Corrupt(const uint32_t address, const uint16_t value)
 	{
 		if (IsAddressValid(address))
 			Words()[(address - GetFlashBaseAddress()) / 2] = value;
+	}
+
+	static int32_t& ErasesUntilFailure()
+	{
+		static int32_t erases = -1;
+		return erases;
+	}
+
+	static uint32_t* PageEraseCount()
+	{
+		static uint32_t counts[PageCount] = {};
+		return counts;
+	}
+
+	static bool& StorageAvailable()
+	{
+		static bool available = true;
+		return available;
 	}
 
 private:

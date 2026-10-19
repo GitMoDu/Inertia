@@ -18,16 +18,20 @@ namespace Inertia
 			{
 				/// <summary>
 				/// Processes journal requests in FIFO order:
-				/// Head -> [Save A] -> [Erase page] -> [Save B] -> Tail
-				/// Save: BeginSave once -> SaveStep on later callbacks -> complete and remove from queue.
-				/// Erase: erase the requested page -> complete and remove from queue in one callback.
+				/// Head -> [Save A] -> [Erase page] -> [Save B] -> Tail.
+				/// Each save owns its enqueue-time snapshot. Queue acceptance does not guarantee persistence success.
+				/// Programming advances by at most one flash mutation per callback; scanning, erase, checksum, and
+				/// verification work may still take synchronous time, so this is cooperative rather than hard real-time.
+					/// Direct saves and maintenance erases must not run while this task has pending operations.
 				/// </summary>
 				template<typename Journal, uint16_t QueueCapacity>
 				class AsyncFlashJournalTask : public TS::Task
 				{
 				private:
 					using Entry = typename Journal::entry_type;
-
+					using SaveStatus = typename Journal::SaveStatus;
+					using SaveError = typename Journal::SaveError;
+					using SaveOperation = typename Journal::SaveOperation;
 					enum class OperationType : uint8_t
 					{
 						Save,
@@ -36,38 +40,50 @@ namespace Inertia
 
 					struct Operation
 					{
-						OperationType Type;
-						Entry Value;
-						uint16_t PageIndex;
-						bool SaveStarted;
-						typename Journal::SaveOperation SaveState;
+						SaveOperation Save{};
+						OperationType Type = OperationType::Save;
+						uint16_t PageIndex = 0;
 					};
 
-					Operation Operations[QueueCapacity]{};
+					Operation Operations[QueueCapacity];
 					uint16_t Head = 0;
 					uint16_t Tail = 0;
 					uint16_t Count = 0;
 					Journal& Storage;
-					using SaveStepResult = typename Journal::SaveStepResult;
+
 					bool LastOperationSucceeded = true;
+					SaveError LastOperationFailure = SaveError::None;
 					uint32_t CompletedOperationCount = 0;
 
-					bool Enqueue(const OperationType type, const Entry* value, const uint16_t pageIndex)
+					bool EnqueueSave(const Entry& value)
 					{
 						if (Count == QueueCapacity)
 							return false;
 
 						Operation& operation = Operations[Tail];
-						operation.Type = type;
-						if (value != nullptr)
-							operation.Value = *value;
+						operation.Type = OperationType::Save;
+						Storage.BeginSave(value, operation.Save);
+						AdvanceTail();
+						return true;
+					}
+
+					bool EnqueuePageErase(const uint16_t pageIndex)
+					{
+						if (Count == QueueCapacity)
+							return false;
+
+						Operation& operation = Operations[Tail];
+						operation.Type = OperationType::ErasePage;
 						operation.PageIndex = pageIndex;
-						operation.SaveStarted = false;
-						operation.SaveState = typename Journal::SaveOperation{};
+						AdvanceTail();
+						return true;
+					}
+
+					void AdvanceTail()
+					{
 						Tail = uint16_t((Tail + 1) % QueueCapacity);
 						++Count;
 						TS::Task::enableDelayed(0);
-						return true;
 					}
 
 				public:
@@ -80,14 +96,14 @@ namespace Inertia
 
 					bool QueueSave(const Entry& entry)
 					{
-						return Enqueue(OperationType::Save, &entry, 0);
+						return EnqueueSave(entry);
 					}
 
 					bool QueuePageErase(const uint16_t pageIndex)
 					{
 						if (pageIndex >= Journal::GetPageCount())
 							return false;
-						return Enqueue(OperationType::ErasePage, nullptr, pageIndex);
+						return EnqueuePageErase(pageIndex);
 					}
 
 					uint16_t GetPendingOperationCount() const
@@ -98,6 +114,11 @@ namespace Inertia
 					bool GetLastOperationSucceeded() const
 					{
 						return LastOperationSucceeded;
+					}
+
+					SaveError GetLastOperationError() const
+					{
+						return LastOperationFailure;
 					}
 
 					uint32_t GetCompletedOperationCount() const
@@ -117,33 +138,24 @@ namespace Inertia
 						bool operationComplete = false;
 						if (operation.Type == OperationType::ErasePage)
 						{
-							LastOperationSucceeded = Storage.EraseJournalPage(operation.PageIndex);
+							LastOperationSucceeded = Storage.ErasePageForMaintenance(operation.PageIndex);
+							LastOperationFailure = LastOperationSucceeded ? SaveError::None : SaveError::FlashFailure;
 							operationComplete = true;
 						}
 						else
 						{
-							if (!operation.SaveStarted)
+							const SaveStatus status = operation.Save.Step();
+							if (status == SaveStatus::Failed)
 							{
-								operation.SaveStarted = true;
-								LastOperationSucceeded = Storage.BeginSave(operation.Value, operation.SaveState);
-								if (!LastOperationSucceeded)
-									operationComplete = true;
-								else
-									return true;
+								LastOperationSucceeded = false;
+								LastOperationFailure = operation.Save.Error();
+								operationComplete = true;
 							}
-							else
+							else if (status == SaveStatus::Completed)
 							{
-								const SaveStepResult result = Storage.SaveStep(operation.Value, operation.SaveState);
-								if (result == SaveStepResult::Failed)
-								{
-									LastOperationSucceeded = false;
-									operationComplete = true;
-								}
-								else if (result == SaveStepResult::Completed)
-								{
-									LastOperationSucceeded = true;
-									operationComplete = true;
-								}
+								LastOperationSucceeded = true;
+								LastOperationFailure = SaveError::None;
+								operationComplete = true;
 							}
 						}
 
