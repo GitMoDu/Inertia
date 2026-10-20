@@ -89,7 +89,7 @@ For task profiling and instrumentation, include this before using `TS::Task`:
 
 ## Installation
 
-Inertia is structured as an Arduino-compatible library. Add the repository through the Arduino Library Manager when available, or install it manually in your Arduino libraries directory.
+Inertia is structured as an Arduino-compatible library. Add the repository to your Arduino libraries directory.
 
 The library can also be included in other embedded C/C++ build systems by adding `src` to the compiler include path and selecting the drivers required by the target.
 
