@@ -18,21 +18,24 @@ namespace LightStripColorTests
 
 	struct TestStripDriver : Light::ILightColorDriver<Grb>
 	{
-		Grb::color_t Colors[2]{};
+		uint8_t Buffer[sizeof(Grb::color_t) * 2]{};
+		size_t BufferSize = 0;
+		bool Started = false;
 		bool Pushed = false;
 
-		bool Start() override { return true; }
-		void Stop() override {}
-
-		bool SetLightColor(const uint16_t index, const Grb::color_t color) override
+		bool Start() override
 		{
-			if (index >= 2) return false;
-			Colors[index] = color;
+			Started = true;
 			return true;
 		}
 
-		bool Push() override
+		void Stop() override { Started = false; }
+
+		bool Push(const uint8_t* buffer, const size_t size) override
 		{
+			if (!Started || buffer == nullptr || size > sizeof(Buffer)) return false;
+			for (size_t index = 0; index < size; ++index) Buffer[index] = buffer[index];
+			BufferSize = size;
 			Pushed = true;
 			return true;
 		}
@@ -54,27 +57,27 @@ namespace LightStripColorTests
 
 	template<typename StripColorModelType>
 	inline bool ExerciseStartedDriver(Light::ILightColorDriver<StripColorModelType>& driver,
-		const typename StripColorModelType::color_t color, const uint16_t invalidIndex,
+		const typename StripColorModelType::color_t color,
 		const __FlashStringHelper* name)
 	{
 		Serial.println(name);
 		bool pass = true;
-		pass &= Expect(!driver.SetLightColor(0, color), F("Set color before Start"));
-		pass &= Expect(!driver.Push(), F("Push before Start"));
+		const uint8_t* const buffer = reinterpret_cast<const uint8_t*>(&color);
+		const size_t size = sizeof(color);
+		pass &= Expect(!driver.Push(buffer, size), F("Push before Start"));
 
 		const bool started = driver.Start();
 		pass &= Expect(started, F("Start"));
 		if (started)
 		{
 			pass &= Expect(driver.Start(), F("Repeated Start"));
-			pass &= Expect(driver.SetLightColor(0, color), F("Set valid color index"));
-			pass &= Expect(!driver.SetLightColor(invalidIndex, color), F("Reject out-of-range color index"));
-			pass &= Expect(driver.Push(), F("Push frame"));
+			pass &= Expect(!driver.Push(nullptr, size), F("Reject null frame"));
+			pass &= Expect(!driver.Push(buffer, size - 1), F("Reject invalid frame size"));
+			pass &= Expect(driver.Push(buffer, size), F("Push frame"));
 		}
 
 		driver.Stop();
-		pass &= Expect(!driver.SetLightColor(0, color), F("Reject color after Stop"));
-		pass &= Expect(!driver.Push(), F("Reject Push after Stop"));
+		pass &= Expect(!driver.Push(buffer, size), F("Reject Push after Stop"));
 		return pass;
 	}
 
@@ -85,13 +88,13 @@ namespace LightStripColorTests
 		RgbwSpi2MhzDriver& spi2MhzRgbw)
 	{
 		bool pass = true;
-		pass &= ExerciseStartedDriver<Grb>(bitBangRgb, Grb::color_t{ 0x34, 0x12, 0x56 }, 5,
+		pass &= ExerciseStartedDriver<Grb>(bitBangRgb, Grb::color_t{ 0x34, 0x12, 0x56 },
 			F("SK6812 AVR bitbang RGB"));
-		pass &= ExerciseStartedDriver<RgbwGrbw>(bitBangRgbw, RgbwGrbw::color_t{ 0x34, 0x12, 0x56, 0x78 }, 1,
+		pass &= ExerciseStartedDriver<RgbwGrbw>(bitBangRgbw, RgbwGrbw::color_t{ 0x34, 0x12, 0x56, 0x78 },
 			F("SK6812 AVR bitbang RGBW"));
-		pass &= ExerciseStartedDriver<Grb>(spi2MhzRgb, Grb::color_t{ 0x34, 0x12, 0x56 }, 1,
+		pass &= ExerciseStartedDriver<Grb>(spi2MhzRgb, Grb::color_t{ 0x34, 0x12, 0x56 },
 			F("SK6812 AVR SPI 2 MHz RGB"));
-		pass &= ExerciseStartedDriver<RgbwGrbw>(spi2MhzRgbw, RgbwGrbw::color_t{ 0x34, 0x12, 0x56, 0x78 }, 1,
+		pass &= ExerciseStartedDriver<RgbwGrbw>(spi2MhzRgbw, RgbwGrbw::color_t{ 0x34, 0x12, 0x56, 0x78 },
 			F("SK6812 AVR SPI 2 MHz RGBW"));
 		return pass;
 	}
@@ -102,9 +105,9 @@ namespace LightStripColorTests
 		RgbwSpi8MhzDriver& spi8MhzRgbw)
 	{
 		bool pass = true;
-		pass &= ExerciseStartedDriver<Grb>(spi8MhzRgb, Grb::color_t{ 0x34, 0x12, 0x56 }, 1,
+		pass &= ExerciseStartedDriver<Grb>(spi8MhzRgb, Grb::color_t{ 0x34, 0x12, 0x56 },
 			F("SK6812 AVR SPI 8 MHz RGB"));
-		pass &= ExerciseStartedDriver<RgbwGrbw>(spi8MhzRgbw, RgbwGrbw::color_t{ 0x34, 0x12, 0x56, 0x78 }, 1,
+		pass &= ExerciseStartedDriver<RgbwGrbw>(spi8MhzRgbw, RgbwGrbw::color_t{ 0x34, 0x12, 0x56, 0x78 },
 			F("SK6812 AVR SPI 8 MHz RGBW"));
 		return pass;
 	}
@@ -115,11 +118,11 @@ namespace LightStripColorTests
 		SpiDriver& automaticSpiDriver, BitBangDriver& bitBangDriver)
 	{
 		bool pass = true;
-		pass &= ExerciseStartedDriver<Grb>(explicitSpiDriver, Grb::color_t{ 0x34, 0x12, 0x56 }, 1,
+		pass &= ExerciseStartedDriver<Grb>(explicitSpiDriver, Grb::color_t{ 0x34, 0x12, 0x56 },
 			F("WS2812B AVR explicit SPI clock"));
-		pass &= ExerciseStartedDriver<Grb>(automaticSpiDriver, Grb::color_t{ 0x34, 0x12, 0x56 }, 1,
+		pass &= ExerciseStartedDriver<Grb>(automaticSpiDriver, Grb::color_t{ 0x34, 0x12, 0x56 },
 			F("WS2812B AVR automatic SPI clock"));
-		pass &= ExerciseStartedDriver<Grb>(bitBangDriver, Grb::color_t{ 0x34, 0x12, 0x56 }, 1,
+		pass &= ExerciseStartedDriver<Grb>(bitBangDriver, Grb::color_t{ 0x34, 0x12, 0x56 },
 			F("WS2812B AVR bitbang"));
 		return pass;
 	}
@@ -127,7 +130,7 @@ namespace LightStripColorTests
 	template<typename PioDriver>
 	inline bool RunRp2040Ws2812bDriverTests(PioDriver& pioDriver)
 	{
-		return ExerciseStartedDriver<Grb>(pioDriver, Grb::color_t{ 0x34, 0x12, 0x56 }, 1,
+		return ExerciseStartedDriver<Grb>(pioDriver, Grb::color_t{ 0x34, 0x12, 0x56 },
 			F("WS2812B RP2040 PIO"));
 	}
 
@@ -136,9 +139,9 @@ namespace LightStripColorTests
 		RgbwBitBangDriver& bitBangRgbw)
 	{
 		bool pass = true;
-		pass &= ExerciseStartedDriver<Grb>(bitBangRgb, Grb::color_t{ 0x34, 0x12, 0x56 }, 1,
+		pass &= ExerciseStartedDriver<Grb>(bitBangRgb, Grb::color_t{ 0x34, 0x12, 0x56 },
 			F("SK6812 STM32 bitbang RGB"));
-		pass &= ExerciseStartedDriver<RgbwGrbw>(bitBangRgbw, RgbwGrbw::color_t{ 0x34, 0x12, 0x56, 0x78 }, 1,
+		pass &= ExerciseStartedDriver<RgbwGrbw>(bitBangRgbw, RgbwGrbw::color_t{ 0x34, 0x12, 0x56, 0x78 },
 			F("SK6812 STM32 bitbang RGBW"));
 		return pass;
 	}
@@ -149,11 +152,11 @@ namespace LightStripColorTests
 	{
 		Serial.println(name);
 		bool pass = true;
+		const uint8_t* const buffer = reinterpret_cast<const uint8_t*>(&color);
+		const size_t size = sizeof(color);
 		pass &= Expect(driver.IsReady(), F("DMA ready before Start"));
 		pass &= Expect(driver.Start(), F("Start"));
-		pass &= Expect(driver.SetLightColor(0, color), F("Set valid color index"));
-		pass &= Expect(!driver.SetLightColor(1, color), F("Reject out-of-range color index"));
-		pass &= Expect(driver.Push(), F("Start DMA frame"));
+		pass &= Expect(driver.Push(buffer, size), F("Start DMA frame"));
 		pass &= Expect(!driver.IsReady(), F("DMA reports transfer active"));
 		delayMicroseconds(100);
 		driver.HandleTransmitComplete();
@@ -184,12 +187,14 @@ namespace LightStripColorTests
 		Grb::color_t preparedFrame[2] = {};
 		Grb::Convert<Rgb888>(sourceFrame, preparedFrame, 2);
 		TestStripDriver stripDriver;
-		const bool staged = stripDriver.SetLightColor(0, preparedFrame[0]);
-		const bool pushed = stripDriver.Push();
+		const bool started = stripDriver.Start();
+		const bool pushed = stripDriver.Push(reinterpret_cast<const uint8_t*>(preparedFrame), sizeof(preparedFrame));
 
 		return Expect(rgb888Grb.Channels[0] == 0x34 && rgb888Grb.Channels[1] == 0x12 && rgb888Grb.Channels[2] == 0x56, F("RGB888 GRB preparation"))
 			&& Expect(preparedFrame[0].Channels[0] == 0x34 && preparedFrame[1].Channels[0] == 0x89, F("Frame conversion"))
-			&& Expect(staged && pushed && stripDriver.Pushed && stripDriver.Colors[0].Channels[0] == 0x34, F("Stage native color and push"))
+			&& Expect(started && pushed && stripDriver.Pushed && stripDriver.BufferSize == sizeof(preparedFrame)
+				&& stripDriver.Buffer[0] == 0x34 && stripDriver.Buffer[1] == 0x12 && stripDriver.Buffer[2] == 0x56
+				&& stripDriver.Buffer[3] == 0x89, F("Push prepared frame buffer"))
 			&& Expect(rgb10Grb.Channels[0] == 64 && rgb10Grb.Channels[1] == 128 && rgb10Grb.Channels[2] == 0, F("RGB10 GRB preparation"))
 			&& Expect(rgbFraction16Grb.Channels[0] == 64 && rgbFraction16Grb.Channels[1] == 128 && rgbFraction16Grb.Channels[2] == 0, F("RGBFraction16 GRB preparation"))
 			&& Expect(rgbwGray.Channels[0] == 0 && rgbwGray.Channels[1] == 0 && rgbwGray.Channels[2] == 0 && rgbwGray.Channels[3] == 128, F("RGBW preparation"))

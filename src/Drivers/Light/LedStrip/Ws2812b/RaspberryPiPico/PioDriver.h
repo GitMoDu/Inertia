@@ -42,7 +42,6 @@ namespace Inertia
 							uint32_t StateMachine = InvalidStateMachine;
 							uint32_t ProgramOffset = 0;
 							uint32_t BusyUntilMicros = 0;
-							OutputFormat::Grb::color_t Colors[LedCount]{};
 							bool Started = false;
 
 						public:
@@ -95,31 +94,20 @@ namespace Inertia
 								Started = false;
 							}
 
-							bool SetLightColor(const uint16_t index, const OutputFormat::Grb::color_t color) override
+							bool Push(const uint8_t* buffer, const size_t size) override
 							{
-								if (!Started || (index >= LedCount))
-								{
-									return false;
-								}
-
-								Colors[index] = color;
-								return true;
-							}
-
-							OutputFormat::Grb::color_t* GetColorBuffer() override { return Colors; }
-							const OutputFormat::Grb::color_t* GetColorBuffer() const override { return Colors; }
-							uint16_t GetColorCount() const override { return LedCount; }
-
-							bool Push() override
-							{
-								if (!Started || !IsReady())
+								if (!Started || !IsReady() || buffer == nullptr || size != size_t(LedCount) * OutputFormat::Grb::ChannelCount)
 								{
 									return false;
 								}
 
 								for (uint16_t i = 0; i < LedCount; i++)
 								{
-									pio_sm_put_blocking(PioInstance, StateMachine, PackNativeColor(Colors[i]) << 8u);
+									const size_t byteIndex = size_t(i) * OutputFormat::Grb::ChannelCount;
+									const uint32_t color = (uint32_t(buffer[byteIndex]) << 16)
+										| (uint32_t(buffer[byteIndex + 1]) << 8)
+										| buffer[byteIndex + 2];
+									pio_sm_put_blocking(PioInstance, StateMachine, color << 8u);
 								}
 
 								BusyUntilMicros = micros()
@@ -197,13 +185,6 @@ namespace Inertia
 								sm_config_set_wrap(&config, offset, offset + 3);
 								sm_config_set_sideset(&config, 1, false, false);
 								return config;
-							}
-
-							static uint32_t PackNativeColor(const OutputFormat::Grb::color_t color)
-							{
-								return (uint32_t(color.Channels[0]) << 16)
-									| (uint32_t(color.Channels[1]) << 8)
-									| color.Channels[2];
 							}
 
 							bool IsReady() const

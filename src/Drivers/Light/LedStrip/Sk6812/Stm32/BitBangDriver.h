@@ -143,7 +143,6 @@ namespace Inertia
 								static_assert(NativeByteCount <= UINT16_MAX, "SK6812 STM32 bitbang frame exceeds its supported byte count.");
 
 								Detail::GpioWriter Output;
-								typename StripColorModelType::color_t Colors[LedCount]{};
 								bool Started = false;
 
 							public:
@@ -165,27 +164,13 @@ namespace Inertia
 									Started = false;
 								}
 
-								bool SetLightColor(const uint16_t index, const typename StripColorModelType::color_t color) override
+								bool Push(const uint8_t* buffer, const size_t size) override
 								{
-									if (!Started || index >= LedCount)
+									if (!Started || buffer == nullptr || size != NativeByteCount)
 									{
 										return false;
 									}
-									Colors[index] = color;
-									return true;
-								}
-
-								typename StripColorModelType::color_t* GetColorBuffer() override { return Colors; }
-								const typename StripColorModelType::color_t* GetColorBuffer() const override { return Colors; }
-								uint16_t GetColorCount() const override { return LedCount; }
-
-								bool Push() override
-								{
-									if (!Started)
-									{
-										return false;
-									}
-									Transmit(reinterpret_cast<const uint8_t*>(Colors), static_cast<uint16_t>(NativeByteCount), Output);
+									Transmit(buffer, static_cast<uint16_t>(NativeByteCount), Output);
 									return true;
 								}
 							};

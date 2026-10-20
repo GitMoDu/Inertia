@@ -4,7 +4,7 @@
 #include "LightStripColorTests.h"
 
 #if defined(ARDUINO_ARCH_AVR)
-Inertia::Drivers::Light::LedStrip::Sk6812::Avr::BitBangRgbDriver<4, 5> avrBitBangDriver{};
+Inertia::Drivers::Light::LedStrip::Sk6812::Avr::BitBangRgbDriver<4, 1> avrBitBangDriver{};
 Inertia::Drivers::Light::LedStrip::Sk6812::Avr::BitBangRgbwDriver<5, 1> avrBitBangRgbwDriver{};
 Inertia::Drivers::Light::LedStrip::Sk6812::Avr::Spi2MhzRgbDriver<1> avrSpi2MhzDriver{};
 Inertia::Drivers::Light::LedStrip::Sk6812::Avr::Spi2MhzRgbwDriver<1> avrSpi2MhzRgbwDriver{};

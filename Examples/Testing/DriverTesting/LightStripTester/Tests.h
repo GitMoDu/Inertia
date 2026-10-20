@@ -14,6 +14,7 @@ namespace LightStripTester
 			using source_color_t = typename TSourceColorModel::color_t;
 			using strip_color_t = typename TStripOutput::color_t;
 			static constexpr uint8_t DemoBrightness = 16;
+			strip_color_t frame[LedCount]{};
 			const source_color_t red = static_cast<source_color_t>(DemoBrightness) << 16;
 			const source_color_t green = static_cast<source_color_t>(DemoBrightness) << 8;
 			const source_color_t blue = DemoBrightness;
@@ -33,11 +34,10 @@ namespace LightStripTester
 			for (uint16_t index = 0; index < LedCount; ++index)
 			{
 				const uint16_t colorIndex = (index + phase) % (sizeof(TestColors) / sizeof(TestColors[0]));
-				const strip_color_t color = TStripOutput::template Convert<TSourceColorModel>(TestColors[colorIndex]);
-				strip.SetLightColor(index, color);
+				frame[index] = TStripOutput::template Convert<TSourceColorModel>(TestColors[colorIndex]);
 			}
 
-			strip.Push();
+			strip.Push(reinterpret_cast<const uint8_t*>(frame), sizeof(frame));
 		}
 	};
 }

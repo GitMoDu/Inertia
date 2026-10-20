@@ -41,14 +41,14 @@ namespace Inertia
 								static_assert(sizeof(typename StripColorModelType::color_t) == StripColorModelType::ChannelCount,
 									"SK6812 color values must be tightly packed for linear encoding.");
 
+								uint8_t EncodedBuffer[EncodedByteCount]{};
+								volatile bool TransferActive = false;
 								SPIClass& Spi;
-								volatile bool TransferActive;
-								typename StripColorModelType::color_t Colors[LedCount]{};
-								uint8_t EncodedBuffer[EncodedByteCount];
 
 							public:
 								explicit SpiDmaTransport(SPIClass& spi = SPI)
-									: Spi(spi), TransferActive(false), EncodedBuffer() {}
+									: Spi(spi)
+								{}
 
 								bool Start() override
 								{
@@ -67,27 +67,15 @@ namespace Inertia
 
 								void HandleTransmitComplete() { TransferActive = false; }
 
-								bool SetLightColor(const uint16_t index, const typename StripColorModelType::color_t color) override
+								bool Push(const uint8_t* buffer, const size_t size) override
 								{
-									if (index >= LedCount) return false;
-									Colors[index] = color;
-									return true;
-								}
-
-								typename StripColorModelType::color_t* GetColorBuffer() override { return Colors; }
-								const typename StripColorModelType::color_t* GetColorBuffer() const override { return Colors; }
-								uint16_t GetColorCount() const override { return LedCount; }
-
-								bool Push() override
-								{
-									if (TransferActive) return false;
+									if (TransferActive || buffer == nullptr || size != NativeByteCount) return false;
 
 									uint8_t* encoded = EncodedBuffer;
-									const uint8_t* const colorBytes = reinterpret_cast<const uint8_t*>(Colors);
 									*encoded++ = 0;
 									for (size_t byteIndex = 0; byteIndex < NativeByteCount; ++byteIndex)
 									{
-										EncodeByte(encoded, colorBytes[byteIndex]);
+										EncodeByte(encoded, buffer[byteIndex]);
 									}
 									*encoded = 0;
 

@@ -76,12 +76,7 @@ namespace Inertia
 
 				~ILightColorDriver() = default;
 
-				virtual bool SetLightColor(const uint16_t index, const color_t color) = 0;
-				// Mutable buffer access is caller-managed; wait until IsReady() before modifying data used by an asynchronous driver.
-				virtual color_t* GetColorBuffer() = 0;
-				virtual const color_t* GetColorBuffer() const = 0;
-				virtual uint16_t GetColorCount() const = 0;
-				virtual bool Push() = 0;
+				virtual bool Push(const uint8_t* buffer, const size_t size) = 0;
 				virtual bool IsReady() const { return true; }
 			};
 		}

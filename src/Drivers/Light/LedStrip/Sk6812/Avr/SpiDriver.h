@@ -118,8 +118,8 @@ namespace Inertia
 									"SK6812 supports RGB and RGBW formats.");
 								static_assert(sizeof(typename StripColorModelType::color_t) == StripColorModelType::ChannelCount,
 									"SK6812 color values must be tightly packed for linear transmission.");
+								static constexpr size_t NativeByteCount = size_t(LedCount) * StripColorModelType::ChannelCount;
 
-								typename StripColorModelType::color_t Colors[LedCount]{};
 								uint32_t WaitStart = 0;
 								bool Busy = false;
 								bool Started = false;
@@ -156,34 +156,18 @@ namespace Inertia
 									Started = false;
 								}
 
-								bool SetLightColor(const uint16_t index, const typename StripColorModelType::color_t color) override
+								bool Push(const uint8_t* buffer, const size_t size) override
 								{
-									if (!Started || index >= LedCount)
-									{
-										return false;
-									}
-
-									Colors[index] = color;
-									return true;
-								}
-
-								typename StripColorModelType::color_t* GetColorBuffer() override { return Colors; }
-								const typename StripColorModelType::color_t* GetColorBuffer() const override { return Colors; }
-								uint16_t GetColorCount() const override { return LedCount; }
-
-								bool Push() override
-								{
-									if (!Started || !IsReady())
+									if (!Started || !IsReady() || buffer == nullptr || size != NativeByteCount)
 									{
 										return false;
 									}
 
 									const uint8_t sregPrevious = SREG;
-									const uint8_t* const colorBytes = reinterpret_cast<const uint8_t*>(Colors);
 									cli();
-									for (size_t byteIndex = 0; byteIndex < sizeof(Colors); ++byteIndex)
+									for (size_t byteIndex = 0; byteIndex < NativeByteCount; ++byteIndex)
 									{
-										EncodingType::SendEncodedByte(colorBytes[byteIndex]);
+										EncodingType::SendEncodedByte(buffer[byteIndex]);
 									}
 									SREG = sregPrevious;
 

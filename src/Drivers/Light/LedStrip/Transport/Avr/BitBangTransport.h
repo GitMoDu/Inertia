@@ -154,7 +154,6 @@ namespace Inertia
 
 							volatile uint8_t* Port = nullptr;
 							uint8_t PinMask = 0;
-							typename StripColorModelType::color_t Colors[LedCount]{};
 							bool Started = false;
 
 						public:
@@ -181,23 +180,10 @@ namespace Inertia
 								}
 							}
 
-							bool SetLightColor(const uint16_t index, const typename StripColorModelType::color_t color) override
+							bool Push(const uint8_t* buffer, const size_t size) override
 							{
-								if (!Started || index >= LedCount) return false;
-								Colors[index] = color;
-								return true;
-							}
-
-							typename StripColorModelType::color_t* GetColorBuffer() override { return Colors; }
-
-							const typename StripColorModelType::color_t* GetColorBuffer() const override { return Colors; }
-
-							uint16_t GetColorCount() const override { return LedCount; }
-
-							bool Push() override
-							{
-								if (!Started) return false;
-								Detail::SendArrayMask(reinterpret_cast<const uint8_t*>(Colors),
+								if (!Started || buffer == nullptr || size != NativeByteCount) return false;
+								Detail::SendArrayMask(buffer,
 									static_cast<uint16_t>(NativeByteCount), PinMask, Port);
 								return true;
 							}
