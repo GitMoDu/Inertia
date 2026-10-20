@@ -82,6 +82,8 @@ namespace Inertia
 						{
 							if (Owner != nullptr)
 							{
+								CurrentState.CurrentStatus = SaveStatusEnum::Failed;
+								CurrentState.CurrentError = SaveErrorEnum::Abandoned;
 								Owner->Release(CurrentState);
 								Detach();
 							}

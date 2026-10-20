@@ -56,6 +56,7 @@ namespace Inertia
 					StorageUnavailable,
 					FlashFailure,
 					VerificationFailure,
+					Abandoned,
 					EnumCount
 				};
 

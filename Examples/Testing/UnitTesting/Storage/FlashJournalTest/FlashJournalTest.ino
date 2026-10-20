@@ -287,24 +287,81 @@ bool RunOperationOwnershipTests()
 	passed = snapshot != nullptr && snapshot->Sequence == 3
 		&& snapshot->Value.Bytes[0] == expectedThirdFirstByte && passed;
 
-	{
-		JournalType::SaveOperation incomplete;
-		JournalStorage.BeginSave(second, incomplete);
-		passed = incomplete.Step() == JournalType::SaveStatus::InProgress && passed;
-	}
+	JournalType::SaveOperation abandoned;
+	JournalStorage.BeginSave(second, abandoned);
+	passed = abandoned.Status() == JournalType::SaveStatus::InProgress && passed;
+	passed = abandoned.Step() == JournalType::SaveStatus::InProgress && passed;
+	abandoned.Abandon();
+	passed = abandoned.Status() == JournalType::SaveStatus::Failed
+		&& abandoned.Error() == JournalType::SaveError::Abandoned && passed;
+	const uint32_t beforeTerminalStep = RamFlash::GetMutationCount();
+	passed = abandoned.Step() == JournalType::SaveStatus::Failed
+		&& abandoned.Error() == JournalType::SaveError::Abandoned
+		&& RamFlash::GetMutationCount() == beforeTerminalStep && passed;
 	result = JournalStorage.Load();
 	snapshot = result.GetSnapshot();
 	passed = snapshot != nullptr && snapshot->Sequence == 3 && passed;
 	passed = JournalStorage.Save(first) && passed;
 	result = JournalStorage.Load();
 	snapshot = result.GetSnapshot();
-	passed = snapshot != nullptr && snapshot->Sequence == 4 && passed;
+	passed = snapshot != nullptr && snapshot->Sequence == 4
+		&& memcmp(snapshot->Value.Bytes, first.Bytes, JournalEntrySize) == 0 && passed;
 	const uint32_t abandonedSlot = JournalType::GetJournalStartAddress()
 		+ 3 * JournalType::GetRecordSize();
 	passed = RamFlash::ReadHalfWord(abandonedSlot) != 0xFFFF && passed;
 	Serial.println(passed
 		? F("PASS: operation snapshot ownership, writer serialization, terminal steps, abandonment.")
 		: F("FAIL: operation ownership and serialization test."));
+	return passed;
+}
+
+bool RunJournalCopyOwnershipTests()
+{
+	RamFlash::Reset();
+	JournalType original(JournalSeed);
+	JournalType copied(original);
+	JournalEntry first{};
+	JournalEntry second{};
+	for (size_t index = 0; index < JournalEntrySize; ++index)
+	{
+		first.Bytes[index] = static_cast<uint8_t>(index + 12);
+		second.Bytes[index] = static_cast<uint8_t>(index + 62);
+	}
+
+	JournalType::SaveOperation operation;
+	original.BeginSave(first, operation);
+	bool passed = operation.Step() == JournalType::SaveStatus::InProgress;
+	copied = original;
+	uint16_t steps = 0;
+	while (operation.Status() == JournalType::SaveStatus::InProgress && steps++ < 32)
+		operation.Step();
+	passed = operation.Status() == JournalType::SaveStatus::Completed && passed;
+
+	const bool copiedSaveSucceeded = copied.Save(second);
+	const bool copiedEraseSucceeded = copied.ErasePageForMaintenance(JournalPageCount - 1);
+	JournalType::SaveOperation copiedOperation;
+	copied.BeginSave(second, copiedOperation);
+	const uint32_t beforeStep = RamFlash::GetMutationCount();
+	const JournalType::SaveStatus firstStep = copiedOperation.Step();
+	const uint32_t afterFirstStep = RamFlash::GetMutationCount();
+	const JournalType::SaveStatus secondStep = copiedOperation.Step();
+	const bool incrementalSaveStuck = firstStep == JournalType::SaveStatus::InProgress
+		&& secondStep == JournalType::SaveStatus::InProgress
+		&& beforeStep == afterFirstStep && afterFirstStep == RamFlash::GetMutationCount();
+
+	passed = copiedSaveSucceeded && copiedEraseSucceeded && !incrementalSaveStuck && passed;
+	Serial.println(copiedSaveSucceeded
+		? F("PASS: copied journal synchronous save.")
+		: F("FAIL: copied journal synchronous save remains blocked."));
+	Serial.println(copiedEraseSucceeded
+		? F("PASS: copied journal maintenance erase.")
+		: F("FAIL: copied journal maintenance erase remains blocked."));
+	Serial.println(incrementalSaveStuck
+		? F("FAIL: copied journal incremental save remains stuck InProgress.")
+		: F("PASS: copied journal incremental save advances."));
+	Serial.println(passed
+		? F("PASS: journal copy ownership.")
+		: F("FAIL: journal copy ownership."));
 	return passed;
 }
 
@@ -491,9 +548,10 @@ void setup()
 	const bool loadAndFormatPassed = RunLoadAndFormatTests();
 	const bool interruptedWritePassed = RunInterruptedWriteTests();
 	const bool operationOwnershipPassed = RunOperationOwnershipTests();
+	const bool journalCopyOwnershipPassed = RunJournalCopyOwnershipTests();
 	const bool queuePassed = RunAsyncQueueTests();
 	Serial.println(journalPassed && incrementalSavePassed && loadAndFormatPassed
-		&& interruptedWritePassed && operationOwnershipPassed && queuePassed
+		&& interruptedWritePassed && operationOwnershipPassed && journalCopyOwnershipPassed && queuePassed
 		? F("ALL TESTS PASS") : F("TESTS FAILED"));
 }
 

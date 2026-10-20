@@ -26,6 +26,7 @@ namespace Inertia
 				/// Append while the active page has room. When full, the journal erases the circular successor page
 				/// before appending there, keeping the page with the latest snapshot intact.
 				///
+				/// Records can only be loaded with the seed used to write them; the seed is not authentication.
 				/// A save operation must not outlive its journal. Destruction abandons in-memory progress but cannot undo
 				/// flash writes; any partially programmed slot remains occupied and is skipped during recovery.
 				/// Separate instances targeting the same physical region require external coordination.
