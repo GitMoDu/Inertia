@@ -14,7 +14,7 @@ namespace Inertia
 			{
 				namespace Ws2812b
 				{
-					static constexpr uint32_t LOG_TAG = 1272184249;
+					static constexpr uint32_t LOG_TAG = 3580714258;
 
 					namespace OutputFormat
 					{
@@ -24,6 +24,17 @@ namespace Inertia
 					static constexpr uint32_t BitRate = 800000;
 					static constexpr uint8_t BitsPerChannel = 8;
 					static constexpr uint16_t ResetDelayMicros = 80;
+
+					namespace Timing
+					{
+						struct BitBang
+						{
+							static constexpr uint16_t ZeroPulseNs = 350;
+							static constexpr uint16_t OnePulseNs = 900;
+							static constexpr uint16_t TotalPeriodNs = 1250;
+							static constexpr uint16_t ResetMicros = ResetDelayMicros;
+						};
+					}
 				}
 			}
 		}

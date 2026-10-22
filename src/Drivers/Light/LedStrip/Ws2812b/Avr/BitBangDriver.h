@@ -22,7 +22,7 @@ namespace Inertia
 					{
 						template<uint8_t OutputPin, uint16_t LedCount>
 						using BitBangDriver = Inertia::Drivers::Light::LedStrip::Transport::Avr::BitBangTransport<
-							OutputPin, LedCount, OutputFormat::Grb>;
+							OutputPin, LedCount, OutputFormat::Grb, Inertia::Drivers::Light::LedStrip::Ws2812b::Timing::BitBang>;
 					}
 				}
 			}

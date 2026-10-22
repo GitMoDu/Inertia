@@ -6,12 +6,11 @@
 #if defined(ARDUINO_ARCH_AVR)
 Inertia::Drivers::Light::LedStrip::Sk6812::Avr::BitBangRgbDriver<4, 1> avrBitBangDriver{};
 Inertia::Drivers::Light::LedStrip::Sk6812::Avr::BitBangRgbwDriver<5, 1> avrBitBangRgbwDriver{};
-Inertia::Drivers::Light::LedStrip::Sk6812::Avr::Spi2MhzRgbDriver<1> avrSpi2MhzDriver{};
-Inertia::Drivers::Light::LedStrip::Sk6812::Avr::Spi2MhzRgbwDriver<1> avrSpi2MhzRgbwDriver{};
-#if F_CPU == 8000000UL
+Inertia::Drivers::Light::LedStrip::Sk6812::Avr::Spi4MhzRgbDriver<1> avrSpi4MhzDriver{};
+Inertia::Drivers::Light::LedStrip::Sk6812::Avr::Spi4MhzRgbwDriver<1> avrSpi4MhzRgbwDriver{};
 Inertia::Drivers::Light::LedStrip::Ws2812b::Avr::Spi4MhzDriver<1> ws2812bExplicitSpiDriver{};
-#elif F_CPU == 16000000UL
-Inertia::Drivers::Light::LedStrip::Ws2812b::Avr::Spi8MhzDriver<1> ws2812bExplicitSpiDriver{};
+#if F_CPU == 16000000UL
+Inertia::Drivers::Light::LedStrip::Ws2812b::Avr::Spi8MhzDriver<1> ws2812bSpi8MhzDriver{};
 #endif
 Inertia::Drivers::Light::LedStrip::Ws2812b::Avr::SpiDriver<1> ws2812bSpiDriver{};
 Inertia::Drivers::Light::LedStrip::Ws2812b::Avr::BitBangDriver<6, 1> ws2812bBitBangDriver{};
@@ -38,9 +37,10 @@ void setup()
 #if defined(ARDUINO_ARCH_AVR)
 #if F_CPU == 16000000UL
 	pass = LightStripColorTests::RunAvrSk6812Spi8MhzTests(avrSpi8MhzDriver, avrSpi8MhzRgbwDriver) && pass;
+	pass = LightStripColorTests::RunAvrWs2812bSpi8MhzTests(ws2812bSpi8MhzDriver) && pass;
 #endif
 	pass = LightStripColorTests::RunAvrSk6812DriverTests(
-		avrBitBangDriver, avrBitBangRgbwDriver, avrSpi2MhzDriver, avrSpi2MhzRgbwDriver) && pass;
+		avrBitBangDriver, avrBitBangRgbwDriver, avrSpi4MhzDriver, avrSpi4MhzRgbwDriver) && pass;
 	pass = LightStripColorTests::RunAvrWs2812bDriverTests(
 		ws2812bExplicitSpiDriver, ws2812bSpiDriver, ws2812bBitBangDriver) && pass;
 #elif defined(ARDUINO_ARCH_RP2040)

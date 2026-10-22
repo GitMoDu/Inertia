@@ -21,51 +21,99 @@ namespace Inertia
 					{
 						namespace Detail
 						{
-							struct Spi2MhzEncoding
+							/// <summary>
+							/// Uses a 4 MHz SPI clock with four-clock symbols.
+							/// Significantly offspec from the SK6812 timing, but works with most strips.
+							/// Real waveform is ~250ns on for zero and ~750ns on for one,
+							/// with a nominal ~1000ns symbol period, which can stretch to ~1500 or ~2000ns due to SPI reload spacing.
+							/// </summary>
+							struct Spi4MhzEncoding
 							{
-								static constexpr uint8_t EncodedZero = 0b10000000;
-								static constexpr uint8_t EncodedOne = 0b11000000;
+								static constexpr uint8_t EncodedZero = 0b1000;
+								static constexpr uint8_t EncodedOne = 0b1110;
 								static constexpr uint16_t ResetMicros = 60;
 								static constexpr bool UsesNonBlockingReset = false;
 
 								static void Configure()
 								{
 									static_assert(F_CPU == 8000000UL || F_CPU == 16000000UL,
-										"SK6812 AVR 2 MHz SPI supports 8 MHz and 16 MHz CPU clocks.");
+										"SK6812 AVR 4 MHz SPI supports 8 MHz and 16 MHz CPU clocks.");
 #if F_CPU == 16000000UL
-									SPCR = _BV(SPE) | _BV(MSTR) | _BV(CPHA) | _BV(SPR0);
+									SPCR = _BV(SPE) | _BV(MSTR) | _BV(CPHA);
+									SPSR = 0;
 #else
 									SPCR = _BV(SPE) | _BV(MSTR) | _BV(CPHA);
-#endif
 									SPSR = _BV(SPI2X);
+#endif
 								}
 
 								static void SendEncodedByte(const uint8_t value)
 								{
-									for (uint8_t mask = 0x80; mask; mask >>= 1)
+									SendEncodedBuffer(&value, 1);
+								}
+
+								static void SendEncodedBuffer(const uint8_t* values, const size_t count)
+								{
+									if (count == 0)
 									{
-										SendEncodedBit((value & mask) != 0);
+										return;
 									}
-								}
 
-							private:
-								static void SendEncodedBit(const bool value)
-								{
-									SendSpiByte(value ? EncodedOne : EncodedZero);
-								}
+									size_t valueIndex = 0;
+									uint8_t mask = 0x80;
+									SPDR = EncodePair(values[valueIndex], mask);
+									mask >>= 2;
+									for (;;)
+									{
+										if (mask == 0)
+										{
+											if (++valueIndex == count)
+											{
+												break;
+											}
+											mask = 0x80;
+										}
 
-								static void SendSpiByte(const uint8_t value)
-								{
-									SPDR = value;
+										const uint8_t encodedNext = EncodePair(values[valueIndex], mask);
+										asm volatile
+											(
+												"1: in __tmp_reg__, %[status]\n\t"
+												"sbrs __tmp_reg__, %[complete]\n\t"
+												"rjmp 1b\n\t"
+												"in __tmp_reg__, %[data]\n\t"
+												"out %[data], %[next]\n\t"
+												:
+										: [status] "I" (_SFR_IO_ADDR(SPSR)),
+											[complete] "I" (SPIF),
+											[data] "I" (_SFR_IO_ADDR(SPDR)),
+											[next] "r" (encodedNext)
+											: "r0", "memory"
+											);
+										mask >>= 2;
+									}
+
 									while (!(SPSR & _BV(SPIF)))
 									{
 									}
 									const uint8_t received = SPDR;
 									(void)received;
 								}
+
+							private:
+								static uint8_t EncodePair(const uint8_t value, const uint8_t mask)
+								{
+									const uint8_t encodedFirst = (value & mask) ? EncodedOne : EncodedZero;
+									const uint8_t encodedSecond = (value & (mask >> 1)) ? EncodedOne : EncodedZero;
+									return (encodedFirst << 4) | encodedSecond;
+								}
 							};
 
 #if F_CPU == 16000000UL
+							/// Uses an 8 MHz SPI clock with eight-clock symbols.
+							/// Slightly offspec from the SK6812 timing, but within the tolerance of most strips.
+							/// Real waveform is ~250ns on for zero and ~625ns on for one,
+							/// with a nominal ~1400ns symbol period, which can stretch to ~1500ns due to SPI reload spacing.
+							/// </summary>
 							struct Spi8MhzEncoding
 							{
 								static constexpr uint8_t EncodedZero = 0b11000000;
@@ -81,33 +129,89 @@ namespace Inertia
 
 								static void SendEncodedByte(const uint8_t value)
 								{
-									for (uint8_t mask = 0x80; mask; mask >>= 1)
-									{
-										SendEncodedBit((value & mask) != 0);
-									}
+									SendEncodedBuffer(&value, 1);
 								}
 
-							private:
-								static void SendEncodedBit(const bool value)
+								static void SendEncodedBuffer(const uint8_t* values, const size_t count)
 								{
-									SendSpiByte(value ? EncodedOne : EncodedZero);
-									if (value)
+									if (count == 0)
 									{
-										asm volatile("nop\n\t" "nop\n\t");
+										return;
 									}
-								}
 
-								static void SendSpiByte(const uint8_t value)
-								{
-									SPDR = value;
-									while (!(SPSR & _BV(SPIF)))
+									size_t valueIndex = 0;
+									uint8_t mask = 0x80;
+									SPDR = (values[valueIndex] & mask) ? EncodedOne : EncodedZero;
+									mask >>= 1;
+									for (;;)
 									{
+										if (mask == 0)
+										{
+											if (++valueIndex == count)
+											{
+												break;
+											}
+											mask = 0x80;
+										}
+
+										const uint8_t encodedNext = (values[valueIndex] & mask) ? EncodedOne : EncodedZero;
+										asm volatile
+											(
+												"1: in __tmp_reg__, %[status]\n\t"
+												"sbrs __tmp_reg__, %[complete]\n\t"
+												"rjmp 1b\n\t"
+												"in __tmp_reg__, %[data]\n\t"
+												"out %[data], %[next]\n\t"
+												:
+										: [status] "I" (_SFR_IO_ADDR(SPSR)),
+											[complete] "I" (SPIF),
+											[data] "I" (_SFR_IO_ADDR(SPDR)),
+											[next] "r" (encodedNext)
+											: "r0", "memory"
+											);
+										mask >>= 1;
 									}
+
+									while (!(SPSR & _BV(SPIF))) {}
 									const uint8_t received = SPDR;
 									(void)received;
 								}
+
+							private:
 							};
 #endif
+
+							template<typename EncodingType>
+							struct SpiBufferSender
+							{
+								static void Send(const uint8_t* buffer, const size_t count)
+								{
+									for (size_t index = 0; index < count; ++index)
+									{
+										EncodingType::SendEncodedByte(buffer[index]);
+									}
+								}
+							};
+
+#if F_CPU == 16000000UL
+							template<>
+							struct SpiBufferSender<Spi8MhzEncoding>
+							{
+								static void Send(const uint8_t* buffer, const size_t count)
+								{
+									Spi8MhzEncoding::SendEncodedBuffer(buffer, count);
+								}
+							};
+#endif
+
+							template<>
+							struct SpiBufferSender<Spi4MhzEncoding>
+							{
+								static void Send(const uint8_t* buffer, const size_t count)
+								{
+									Spi4MhzEncoding::SendEncodedBuffer(buffer, count);
+								}
+							};
 
 							template<uint16_t LedCount, typename StripColorModelType, typename EncodingType>
 							class SpiTransport : public Inertia::Components::Light::ILightColorDriver<StripColorModelType>
@@ -165,10 +269,7 @@ namespace Inertia
 
 									const uint8_t sregPrevious = SREG;
 									cli();
-									for (size_t byteIndex = 0; byteIndex < NativeByteCount; ++byteIndex)
-									{
-										EncodingType::SendEncodedByte(buffer[byteIndex]);
-									}
+									SpiBufferSender<EncodingType>::Send(buffer, NativeByteCount);
 									SREG = sregPrevious;
 
 									if (EncodingType::UsesNonBlockingReset)
@@ -183,7 +284,6 @@ namespace Inertia
 									return true;
 								}
 
-							private:
 								bool IsReady()
 								{
 									if (EncodingType::UsesNonBlockingReset && Busy && micros() - WaitStart > EncodingType::ResetMicros)
@@ -204,10 +304,26 @@ namespace Inertia
 #endif
 
 						template<uint16_t LedCount>
-						using Spi2MhzRgbDriver = Detail::SpiTransport<LedCount, OutputFormat::Rgb, Detail::Spi2MhzEncoding>;
+						using Spi4MhzRgbDriver = Detail::SpiTransport<LedCount, OutputFormat::Rgb, Detail::Spi4MhzEncoding>;
 
 						template<uint16_t LedCount>
-						using Spi2MhzRgbwDriver = Detail::SpiTransport<LedCount, OutputFormat::Rgbw, Detail::Spi2MhzEncoding>;
+						using Spi4MhzRgbwDriver = Detail::SpiTransport<LedCount, OutputFormat::Rgbw, Detail::Spi4MhzEncoding>;
+
+#if F_CPU == 8000000UL
+						template<uint16_t LedCount>
+						using SpiRgbDriver = Spi4MhzRgbDriver<LedCount>;
+
+						template<uint16_t LedCount>
+						using SpiRgbwDriver = Spi4MhzRgbwDriver<LedCount>;
+#elif F_CPU == 16000000UL
+						template<uint16_t LedCount>
+						using SpiRgbDriver = Spi8MhzRgbDriver<LedCount>;
+
+						template<uint16_t LedCount>
+						using SpiRgbwDriver = Spi8MhzRgbwDriver<LedCount>;
+#else
+#error "SK6812 AVR SPI supports 8 MHz and 16 MHz CPU clocks."
+#endif
 					}
 				}
 			}

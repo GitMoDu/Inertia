@@ -33,9 +33,9 @@ namespace Inertia
 
 							struct ProtocolTiming
 							{
-								static constexpr uint32_t ZeroHighNs = 350;
-								static constexpr uint32_t OneHighNs = 900;
-								static constexpr uint32_t BitPeriodNs = 1250;
+								static constexpr uint32_t ZeroHighNs = Inertia::Drivers::Light::LedStrip::Sk6812::Timing::BitBang::ZeroPulseNs;
+								static constexpr uint32_t OneHighNs = Inertia::Drivers::Light::LedStrip::Sk6812::Timing::BitBang::OnePulseNs;
+								static constexpr uint32_t BitPeriodNs = Inertia::Drivers::Light::LedStrip::Sk6812::Timing::BitBang::TotalPeriodNs;
 								static constexpr uint32_t ZeroHighCycles = NanosecondsToCycles(ZeroHighNs);
 								static constexpr uint32_t OneHighCycles = NanosecondsToCycles(OneHighNs);
 								static constexpr uint32_t BitPeriodCycles = NanosecondsToCycles(BitPeriodNs);

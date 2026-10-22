@@ -23,6 +23,17 @@ namespace Inertia
 						template<uint8_t WarmWhiteRatio>
 						using Rgbww = Inertia::Components::Light::Strip::Model::Color::Grbww<WarmWhiteRatio>;
 					}
+
+					namespace Timing
+					{
+						struct BitBang
+						{
+							static constexpr uint16_t ZeroPulseNs = 350;
+							static constexpr uint16_t OnePulseNs = 600;
+							static constexpr uint16_t TotalPeriodNs = 1250;
+							static constexpr uint16_t ResetMicros = 80;
+						};
+					}
 				}
 			}
 		}

@@ -15,9 +15,9 @@ namespace LightStripTester
 			using strip_color_t = typename TStripOutput::color_t;
 			static constexpr uint8_t DemoBrightness = 16;
 			strip_color_t frame[LedCount]{};
-			const source_color_t red = static_cast<source_color_t>(DemoBrightness) << 16;
-			const source_color_t green = static_cast<source_color_t>(DemoBrightness) << 8;
-			const source_color_t blue = DemoBrightness;
+			static constexpr source_color_t red = static_cast<source_color_t>(DemoBrightness) << 16;
+			static constexpr source_color_t green = static_cast<source_color_t>(DemoBrightness) << 8;
+			static constexpr source_color_t blue = DemoBrightness;
 
 			const source_color_t TestColors[] =
 			{

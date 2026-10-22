@@ -6,15 +6,6 @@
 #include <Arduino.h>
 #include "../../../../../Components/Light/Model.h"
 
-#define INERTIA_LED_STRIP_AVR_W1_NOPS (((((F_CPU / 1000) * 350) / 1000000) - 3) > 0 ? ((((F_CPU / 1000) * 350) / 1000000) - 3) : 0)
-#define INERTIA_LED_STRIP_AVR_W2_NOPS ((((((F_CPU / 1000) * 900) + 500000) / 1000000) - 6 - (((F_CPU / 1000) * 350) / 1000000 - 3)) > 0 ? (((((F_CPU / 1000) * 900) + 500000) / 1000000) - 6 - (((F_CPU / 1000) * 350) / 1000000 - 3)) : 0)
-#define INERTIA_LED_STRIP_AVR_W3_NOPS (((((((F_CPU / 1000) * 1250) + 500000) / 1000000) - 10 - (((F_CPU / 1000) * 350) / 1000000 - 3) - (((((F_CPU / 1000) * 900) + 500000) / 1000000) - 6 - (((F_CPU / 1000) * 350) / 1000000 - 3))) > 0) ? (((((F_CPU / 1000) * 1250) + 500000) / 1000000) - 10 - (((F_CPU / 1000) * 350) / 1000000 - 3) - (((((F_CPU / 1000) * 900) + 500000) / 1000000) - 6 - (((F_CPU / 1000) * 350) / 1000000 - 3))) : 0)
-#define INERTIA_LED_STRIP_AVR_NOP1 "nop      \n\t"
-#define INERTIA_LED_STRIP_AVR_NOP2 "rjmp .+0 \n\t"
-#define INERTIA_LED_STRIP_AVR_NOP4 INERTIA_LED_STRIP_AVR_NOP2 INERTIA_LED_STRIP_AVR_NOP2
-#define INERTIA_LED_STRIP_AVR_NOP8 INERTIA_LED_STRIP_AVR_NOP4 INERTIA_LED_STRIP_AVR_NOP4
-#define INERTIA_LED_STRIP_AVR_NOP16 INERTIA_LED_STRIP_AVR_NOP8 INERTIA_LED_STRIP_AVR_NOP8
-
 namespace Inertia
 {
 	namespace Drivers
@@ -29,38 +20,28 @@ namespace Inertia
 					{
 						namespace Detail
 						{
-							constexpr uint16_t Cycles(const uint16_t nanoseconds, const bool round)
-							{
-								return (((F_CPU / 1000) * nanoseconds) + (round ? 500000 : 0)) / 1000000;
-							}
-
-							constexpr uint8_t ClampedNops(const int16_t cycles)
-							{
-								return cycles > 0 ? cycles : 0;
-							}
-
+							template<typename TimingPolicy>
 							struct Timing
 							{
-								static constexpr uint16_t ZeroPulseNs = 350;
-								static constexpr uint16_t OnePulseNs = 900;
-								static constexpr uint16_t TotalPeriodNs = 1250;
 								static constexpr uint8_t FixedLowCycles = 3;
 								static constexpr uint8_t FixedHighCycles = 6;
-								static constexpr uint8_t FixedTotalCycles = 10;
-								static constexpr uint16_t ZeroCycles = Cycles(ZeroPulseNs, false);
-								static constexpr uint16_t OneCycles = Cycles(OnePulseNs, true);
-								static constexpr uint16_t TotalCycles = Cycles(TotalPeriodNs, true);
+								// Includes the two-cycle ST, bit-path instructions, DEC, and taken BRNE.
+								static constexpr uint8_t FixedTotalCycles = 11;
+								static constexpr uint16_t ZeroCycles = (((F_CPU / 1000) * TimingPolicy::ZeroPulseNs) / 1000000);
+								static constexpr uint16_t OneCycles = (((F_CPU / 1000) * TimingPolicy::OnePulseNs + 500000) / 1000000);
+								static constexpr uint16_t TotalCycles = (((F_CPU / 1000) * TimingPolicy::TotalPeriodNs + 500000) / 1000000);
 								static constexpr int16_t W1 = ZeroCycles - FixedLowCycles;
 								static constexpr int16_t W2 = OneCycles - FixedHighCycles - W1;
 								static constexpr int16_t W3 = TotalCycles - FixedTotalCycles - W1 - W2;
-								static constexpr uint8_t W1Nops = ClampedNops(W1);
-								static constexpr uint8_t W2Nops = ClampedNops(W2);
-								static constexpr uint8_t W3Nops = ClampedNops(W3);
+								static_assert(W1 >= 0 && W2 >= 0 && W3 >= 0,
+									"AVR LED strip bitbang: F_CPU cannot produce the requested timing profile.");
+								static constexpr uint8_t W1Nops = W1 > 0 ? W1 : 0;
+								static constexpr uint8_t W2Nops = W2 > 0 ? W2 : 0;
+								static constexpr uint8_t W3Nops = W3 > 0 ? W3 : 0;
 								static constexpr uint16_t LowTimeNs = ((W1Nops + FixedLowCycles) * 1000000) / (F_CPU / 1000);
 							};
 
-							static_assert(Timing::LowTimeNs <= 550, "AVR LED strip bitbang: clock speed is too low.");
-
+							template<typename TimingPolicy>
 							static inline void SendArrayMask(const uint8_t* data, const uint16_t length, const uint8_t pinMask, volatile uint8_t* port)
 							{
 								uint8_t currentByte;
@@ -69,79 +50,50 @@ namespace Inertia
 								uint8_t maskHigh = pinMask | *port;
 								uint8_t sregPrevious = SREG;
 								uint16_t remaining = length;
+								if (remaining == 0) return;
 
 								cli();
 
-								while (remaining--)
-								{
-									currentByte = *data++;
-
-									asm volatile(
-										"       ldi   %0,8  \n\t"
-										"loop%=:            \n\t"
-										"       st    X,%3 \n\t"
-#if (INERTIA_LED_STRIP_AVR_W1_NOPS & 1)
-										INERTIA_LED_STRIP_AVR_NOP1
-#endif
-#if (INERTIA_LED_STRIP_AVR_W1_NOPS & 2)
-										INERTIA_LED_STRIP_AVR_NOP2
-#endif
-#if (INERTIA_LED_STRIP_AVR_W1_NOPS & 4)
-										INERTIA_LED_STRIP_AVR_NOP4
-#endif
-#if (INERTIA_LED_STRIP_AVR_W1_NOPS & 8)
-										INERTIA_LED_STRIP_AVR_NOP8
-#endif
-#if (INERTIA_LED_STRIP_AVR_W1_NOPS & 16)
-										INERTIA_LED_STRIP_AVR_NOP16
-#endif
-										"       sbrs  %1,7  \n\t"
-										"       st    X,%4 \n\t"
-										"       lsl   %1    \n\t"
-#if (INERTIA_LED_STRIP_AVR_W2_NOPS & 1)
-										INERTIA_LED_STRIP_AVR_NOP1
-#endif
-#if (INERTIA_LED_STRIP_AVR_W2_NOPS & 2)
-										INERTIA_LED_STRIP_AVR_NOP2
-#endif
-#if (INERTIA_LED_STRIP_AVR_W2_NOPS & 4)
-										INERTIA_LED_STRIP_AVR_NOP4
-#endif
-#if (INERTIA_LED_STRIP_AVR_W2_NOPS & 8)
-										INERTIA_LED_STRIP_AVR_NOP8
-#endif
-#if (INERTIA_LED_STRIP_AVR_W2_NOPS & 16)
-										INERTIA_LED_STRIP_AVR_NOP16
-#endif
-										"       brcc skipone%= \n\t"
-										"       st   X,%4      \n\t"
-										"skipone%=:               "
-#if (INERTIA_LED_STRIP_AVR_W3_NOPS & 1)
-										INERTIA_LED_STRIP_AVR_NOP1
-#endif
-#if (INERTIA_LED_STRIP_AVR_W3_NOPS & 2)
-										INERTIA_LED_STRIP_AVR_NOP2
-#endif
-#if (INERTIA_LED_STRIP_AVR_W3_NOPS & 4)
-										INERTIA_LED_STRIP_AVR_NOP4
-#endif
-#if (INERTIA_LED_STRIP_AVR_W3_NOPS & 8)
-										INERTIA_LED_STRIP_AVR_NOP8
-#endif
-#if (INERTIA_LED_STRIP_AVR_W3_NOPS & 16)
-										INERTIA_LED_STRIP_AVR_NOP16
-#endif
-										"       dec   %0    \n\t"
-										"       brne  loop%=\n\t"
-										: "=&d" (counter)
-										: "r" (currentByte), "x" (port), "r" (maskHigh), "r" (maskLow));
-								}
+								asm volatile(
+									"loadbyte%=:          \n\t"
+									"       ld    %[byte],Z+ \n\t"
+									"       ldi   %[counter],8 \n\t"
+									"bitloop%=:           \n\t"
+									"       st    X,%[high] \n\t"
+									".rept %c[w1]\n\t"
+									"nop\n\t"
+									".endr\n\t"
+									"       sbrs  %[byte],7  \n\t"
+									"       st    X,%[low] \n\t"
+									"       lsl   %[byte]    \n\t"
+									".rept %c[w2]\n\t"
+									"nop\n\t"
+									".endr\n\t"
+									"       brcc skipone%= \n\t"
+									"       st   X,%[low]      \n\t"
+									"skipone%=:               \n\t"
+									".rept %c[w3]\n\t"
+									"nop\n\t"
+									".endr\n\t"
+									"       dec   %[counter] \n\t"
+									"       brne  bitloop%= \n\t"
+									"       sbiw  %A[remaining],1 \n\t"
+									"       breq  done%= \n\t"
+									"       rjmp  loadbyte%= \n\t"
+									"done%=:                \n\t"
+									: [counter] "=&d" (counter), [byte] "=&r" (currentByte),
+									[data] "+&z" (data), [remaining] "+&w" (remaining)
+									: "x" (port), [high] "r" (maskHigh), [low] "r" (maskLow),
+									[w1] "M" (Timing<TimingPolicy>::W1Nops),
+									[w2] "M" (Timing<TimingPolicy>::W2Nops),
+									[w3] "M" (Timing<TimingPolicy>::W3Nops)
+									: "cc", "memory");
 
 								SREG = sregPrevious;
 							}
 						}
 
-						template<uint8_t OutputPin, uint16_t LedCount, typename StripColorModelType>
+						template<uint8_t OutputPin, uint16_t LedCount, typename StripColorModelType, typename TimingPolicy>
 						class BitBangTransport : public Inertia::Components::Light::ILightColorDriver<StripColorModelType>
 						{
 						private:
@@ -183,8 +135,9 @@ namespace Inertia
 							bool Push(const uint8_t* buffer, const size_t size) override
 							{
 								if (!Started || buffer == nullptr || size != NativeByteCount) return false;
-								Detail::SendArrayMask(buffer,
+								Detail::SendArrayMask<TimingPolicy>(buffer,
 									static_cast<uint16_t>(NativeByteCount), PinMask, Port);
+								delayMicroseconds(TimingPolicy::ResetMicros);
 								return true;
 							}
 						};
@@ -194,15 +147,6 @@ namespace Inertia
 		}
 	}
 }
-
-#undef INERTIA_LED_STRIP_AVR_W1_NOPS
-#undef INERTIA_LED_STRIP_AVR_W2_NOPS
-#undef INERTIA_LED_STRIP_AVR_W3_NOPS
-#undef INERTIA_LED_STRIP_AVR_NOP1
-#undef INERTIA_LED_STRIP_AVR_NOP2
-#undef INERTIA_LED_STRIP_AVR_NOP4
-#undef INERTIA_LED_STRIP_AVR_NOP8
-#undef INERTIA_LED_STRIP_AVR_NOP16
 
 #endif
 #endif
