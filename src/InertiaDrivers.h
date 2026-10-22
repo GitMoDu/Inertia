@@ -78,6 +78,7 @@
 #include "Drivers/Light/LedStrip/Sk6812/Avr/SpiDriver.h"
 #include "Drivers/Light/LedStrip/Sk6812/Stm32/BitBangDriver.h"
 #include "Drivers/Light/LedStrip/Sk6812/Stm32/DmaDriver.h"
+#include "Drivers/Light/LedStrip/Sk6812/RaspberryPiPico/PioDriver.h"
 
 #include "Drivers/Adc/RaspberryPiPico/AdcDriver.h"
 

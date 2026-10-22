@@ -34,6 +34,8 @@ namespace Inertia
 							static constexpr uint16_t ResetMicros = 80;
 						};
 					}
+
+					static constexpr uint32_t BitRate = 1000000000UL / Timing::BitBang::TotalPeriodNs;
 				}
 			}
 		}

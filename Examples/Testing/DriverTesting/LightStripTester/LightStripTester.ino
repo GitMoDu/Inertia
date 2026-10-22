@@ -19,20 +19,22 @@
 //#define STRIP_DRIVER_AVR_SK6812_RGBW_SPI_8MHZ // ATmega at 16 MHz only.
 #elif defined(ARDUINO_ARCH_STM32F1)
 // Select exactly one STM32F1 driver.
-//#define STRIP_DRIVER_STM32_WS2812B_RGB_BITBANG
+#define STRIP_DRIVER_STM32_WS2812B_RGB_BITBANG
 //#define STRIP_DRIVER_STM32F1_WS2812B_RGB_SPI_DMA // Requires SPIClass::dmaSendAsync and onTransmit.
 //#define STRIP_DRIVER_STM32_SK6812_RGB_BITBANG
 //#define STRIP_DRIVER_STM32_SK6812_RGBW_BITBANG
 //#define STRIP_DRIVER_STM32F1_SK6812_RGB_SPI_DMA // Requires SPIClass::dmaSendAsync and onTransmit.
-#define STRIP_DRIVER_STM32F1_SK6812_RGBW_SPI_DMA // Requires SPIClass::dmaSendAsync and onTransmit.
+//#define STRIP_DRIVER_STM32F1_SK6812_RGBW_SPI_DMA // Requires SPIClass::dmaSendAsync and onTransmit.
 #elif defined(ARDUINO_ARCH_STM32)
 // Select exactly one STM32 driver.
-//#define STRIP_DRIVER_STM32_WS2812B_RGB_BITBANG
-#define STRIP_DRIVER_STM32_SK6812_RGB_BITBANG
+#define STRIP_DRIVER_STM32_WS2812B_RGB_BITBANG
+//#define STRIP_DRIVER_STM32_SK6812_RGB_BITBANG
 //#define STRIP_DRIVER_STM32_SK6812_RGBW_BITBANG
 #elif defined(ARDUINO_ARCH_RP2040)
 // Select exactly one RP2040 driver.
-#define STRIP_DRIVER_RP2040_WS2812B_PIO
+#define STRIP_DRIVER_RP2040_WS2812B_RGB_PIO
+//#define STRIP_DRIVER_RP2040_SK6812_RGB_PIO
+//#define STRIP_DRIVER_RP2040_SK6812_RGBW_PIO
 #else
 #error "The selected core has no supported LED strip drivers."
 #endif
@@ -55,7 +57,9 @@
 	+ defined(STRIP_DRIVER_STM32F1_SK6812_RGBW_SPI_DMA) \
 	+ defined(STRIP_DRIVER_STM32_SK6812_RGB_BITBANG) \
 	+ defined(STRIP_DRIVER_STM32_SK6812_RGBW_BITBANG) \
-	+ defined(STRIP_DRIVER_RP2040_WS2812B_PIO)) != 1
+	+ defined(STRIP_DRIVER_RP2040_WS2812B_RGB_PIO) \
+	+ defined(STRIP_DRIVER_RP2040_SK6812_RGB_PIO) \
+	+ defined(STRIP_DRIVER_RP2040_SK6812_RGBW_PIO)) != 1
 #error "Select exactly one LED strip driver in the section for this platform."
 #endif
 
@@ -87,7 +91,9 @@
 #error "The selected driver requires an STM32 board."
 #endif
 
-#if defined(STRIP_DRIVER_RP2040_WS2812B_PIO) && !defined(ARDUINO_ARCH_RP2040)
+#if (defined(STRIP_DRIVER_RP2040_WS2812B_RGB_PIO) \
+	|| defined(STRIP_DRIVER_RP2040_SK6812_RGB_PIO) \
+	|| defined(STRIP_DRIVER_RP2040_SK6812_RGBW_PIO)) && !defined(ARDUINO_ARCH_RP2040)
 #error "The selected driver requires an RP2040 board."
 #endif
 
@@ -203,10 +209,20 @@ namespace
 	using StripOutput = Inertia::Drivers::Light::LedStrip::Sk6812::OutputFormat::Rgbw;
 	using StripDriver = Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::SpiDmaRgbwDriver<LedCount>;
 	StripDriver Strip{};
-#elif defined(STRIP_DRIVER_RP2040_WS2812B_PIO)
+#elif defined(STRIP_DRIVER_RP2040_WS2812B_RGB_PIO)
 	static constexpr uint8_t OutputPin = 2;
 	using StripOutput = Inertia::Drivers::Light::LedStrip::Ws2812b::OutputFormat::Grb;
-	using StripDriver = Inertia::Drivers::Light::LedStrip::Ws2812b::RaspberryPiPico::PioDriver<OutputPin, LedCount>;
+	using StripDriver = Inertia::Drivers::Light::LedStrip::Ws2812b::RaspberryPiPico::PioRgbDriver<OutputPin, LedCount>;
+	StripDriver Strip{};
+#elif defined(STRIP_DRIVER_RP2040_SK6812_RGB_PIO)
+	static constexpr uint8_t OutputPin = 2;
+	using StripOutput = Inertia::Drivers::Light::LedStrip::Sk6812::OutputFormat::Rgb;
+	using StripDriver = Inertia::Drivers::Light::LedStrip::Sk6812::RaspberryPiPico::PioRgbDriver<OutputPin, LedCount>;
+	StripDriver Strip{};
+#elif defined(STRIP_DRIVER_RP2040_SK6812_RGBW_PIO)
+	static constexpr uint8_t OutputPin = 2;
+	using StripOutput = Inertia::Drivers::Light::LedStrip::Sk6812::OutputFormat::Rgbw;
+	using StripDriver = Inertia::Drivers::Light::LedStrip::Sk6812::RaspberryPiPico::PioRgbwDriver<OutputPin, LedCount>;
 	StripDriver Strip{};
 #else
 #error "The selected LED strip driver has no implementation."
@@ -226,12 +242,10 @@ void HandleStripTransmitComplete()
 
 void setup()
 {
-	delay(1000);
 	Serial.begin(115200);
-	delay(1000);
 	while (!Serial)
 		;;
-	delay(1000);
+
 	if (!Strip.Start())
 	{
 		Serial.println(F("Strip driver failed to start."));

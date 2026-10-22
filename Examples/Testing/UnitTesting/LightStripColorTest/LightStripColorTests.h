@@ -56,6 +56,8 @@ namespace LightStripColorTests
 		&& Ws2812bBitBangTiming::TotalPeriodNs == 1250, "WS2812B bit-bang timing changed.");
 	static_assert(Sk6812BitBangTiming::ZeroPulseNs == 350 && Sk6812BitBangTiming::OnePulseNs == 600
 		&& Sk6812BitBangTiming::TotalPeriodNs == 1250, "SK6812 historical bit-bang timing changed.");
+	static_assert(Inertia::Drivers::Light::LedStrip::Sk6812::BitRate == 800000,
+		"SK6812 symbol period must derive to an 800 kbit/s PIO rate.");
 	static_assert(Ws2812bBitBangTiming::ResetMicros == 80 && Sk6812BitBangTiming::ResetMicros == 80,
 		"AVR bit-bang reset/latch interval changed.");
 
@@ -204,11 +206,24 @@ namespace LightStripColorTests
 		return pass;
 	}
 
-	template<typename PioDriver>
-	inline bool RunRp2040Ws2812bDriverTests(PioDriver& pioDriver)
+	template<typename RgbPioDriver>
+	inline bool RunRp2040Ws2812bPioDriverTests(RgbPioDriver& pioRgbDriver)
 	{
-		return ExerciseStartedDriver<Grb>(pioDriver, Grb::color_t{ 0x34, 0x12, 0x56 },
+		return ExerciseStartedDriver<Grb>(pioRgbDriver, Grb::color_t{ 0x34, 0x12, 0x56 },
 			F("WS2812B RP2040 PIO"));
+	}
+
+	template<typename RgbPioDriver, typename RgbwPioDriver>
+	inline bool RunRp2040Sk6812PioDriverTests(RgbPioDriver& pioRgb, RgbwPioDriver& pioRgbw)
+	{
+		using Sk6812Rgb = Inertia::Drivers::Light::LedStrip::Sk6812::OutputFormat::Rgb;
+		using Sk6812Rgbw = Inertia::Drivers::Light::LedStrip::Sk6812::OutputFormat::Rgbw;
+		bool pass = true;
+		pass &= ExerciseStartedDriver<Sk6812Rgb>(pioRgb, Sk6812Rgb::color_t{ 0x34, 0x12, 0x56 },
+			F("SK6812 RP2040 PIO RGB"));
+		pass &= ExerciseStartedDriver<Sk6812Rgbw>(pioRgbw, Sk6812Rgbw::color_t{ 0x34, 0x12, 0x56, 0x78 },
+			F("SK6812 RP2040 PIO RGBW"));
+		return pass;
 	}
 
 	template<typename RgbBitBangDriver, typename RgbwBitBangDriver>
