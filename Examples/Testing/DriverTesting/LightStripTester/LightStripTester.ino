@@ -19,12 +19,15 @@
 //#define STRIP_DRIVER_AVR_SK6812_RGBW_SPI_8MHZ // ATmega at 16 MHz only.
 #elif defined(ARDUINO_ARCH_STM32F1)
 // Select exactly one STM32F1 driver.
-#define STRIP_DRIVER_STM32_SK6812_RGB_BITBANG
+//#define STRIP_DRIVER_STM32_WS2812B_RGB_BITBANG
+//#define STRIP_DRIVER_STM32F1_WS2812B_RGB_SPI_DMA // Requires SPIClass::dmaSendAsync and onTransmit.
+//#define STRIP_DRIVER_STM32_SK6812_RGB_BITBANG
 //#define STRIP_DRIVER_STM32_SK6812_RGBW_BITBANG
-//#define STRIP_DRIVER_STM32F1_SK6812_RGB_SPI_DMA // Requires a core with SPIClass::dmaSendAsync.
-//#define STRIP_DRIVER_STM32F1_SK6812_RGBW_SPI_DMA
+//#define STRIP_DRIVER_STM32F1_SK6812_RGB_SPI_DMA // Requires SPIClass::dmaSendAsync and onTransmit.
+#define STRIP_DRIVER_STM32F1_SK6812_RGBW_SPI_DMA // Requires SPIClass::dmaSendAsync and onTransmit.
 #elif defined(ARDUINO_ARCH_STM32)
 // Select exactly one STM32 driver.
+//#define STRIP_DRIVER_STM32_WS2812B_RGB_BITBANG
 #define STRIP_DRIVER_STM32_SK6812_RGB_BITBANG
 //#define STRIP_DRIVER_STM32_SK6812_RGBW_BITBANG
 #elif defined(ARDUINO_ARCH_RP2040)
@@ -46,6 +49,8 @@
 	+ defined(STRIP_DRIVER_AVR_SK6812_RGBW_SPI_4MHZ) \
 	+ defined(STRIP_DRIVER_AVR_SK6812_RGB_SPI_8MHZ) \
 	+ defined(STRIP_DRIVER_AVR_SK6812_RGBW_SPI_8MHZ) \
+	+ defined(STRIP_DRIVER_STM32_WS2812B_RGB_BITBANG) \
+	+ defined(STRIP_DRIVER_STM32F1_WS2812B_RGB_SPI_DMA) \
 	+ defined(STRIP_DRIVER_STM32F1_SK6812_RGB_SPI_DMA) \
 	+ defined(STRIP_DRIVER_STM32F1_SK6812_RGBW_SPI_DMA) \
 	+ defined(STRIP_DRIVER_STM32_SK6812_RGB_BITBANG) \
@@ -69,12 +74,14 @@
 #error "The selected driver requires an AVR board."
 #endif
 
-#if (defined(STRIP_DRIVER_STM32F1_SK6812_RGB_SPI_DMA) \
+#if (defined(STRIP_DRIVER_STM32F1_WS2812B_RGB_SPI_DMA) \
+	|| defined(STRIP_DRIVER_STM32F1_SK6812_RGB_SPI_DMA) \
 	|| defined(STRIP_DRIVER_STM32F1_SK6812_RGBW_SPI_DMA)) && !defined(ARDUINO_ARCH_STM32F1)
 #error "The selected driver requires an STM32F1 board."
 #endif
 
-#if (defined(STRIP_DRIVER_STM32_SK6812_RGB_BITBANG) \
+#if (defined(STRIP_DRIVER_STM32_WS2812B_RGB_BITBANG) \
+	|| defined(STRIP_DRIVER_STM32_SK6812_RGB_BITBANG) \
 	|| defined(STRIP_DRIVER_STM32_SK6812_RGBW_BITBANG)) \
 	&& !defined(ARDUINO_ARCH_STM32F1) && !defined(ARDUINO_ARCH_STM32)
 #error "The selected driver requires an STM32 board."
@@ -169,13 +176,22 @@ namespace
 	using StripOutput = Inertia::Drivers::Light::LedStrip::Sk6812::OutputFormat::Rgbw;
 	using StripDriver = Inertia::Drivers::Light::LedStrip::Sk6812::Avr::Spi8MhzRgbwDriver<LedCount>;
 	StripDriver Strip{};
+#elif defined(STRIP_DRIVER_STM32_WS2812B_RGB_BITBANG)
+	static constexpr uint8_t OutputPin = 4;
+	using StripOutput = Inertia::Drivers::Light::LedStrip::Ws2812b::OutputFormat::Grb;
+	using StripDriver = Inertia::Drivers::Light::LedStrip::Ws2812b::Stm32::BitBangDriver<OutputPin, LedCount>;
+	StripDriver Strip{};
+#elif defined(STRIP_DRIVER_STM32F1_WS2812B_RGB_SPI_DMA)
+	using StripOutput = Inertia::Drivers::Light::LedStrip::Ws2812b::OutputFormat::Grb;
+	using StripDriver = Inertia::Drivers::Light::LedStrip::Ws2812b::Stm32::SpiDmaDriver<LedCount>;
+	StripDriver Strip{};
 #elif defined(STRIP_DRIVER_STM32_SK6812_RGB_BITBANG)
-	static constexpr uint8_t OutputPin = 5;
+	static constexpr uint8_t OutputPin = 4;
 	using StripOutput = Inertia::Drivers::Light::LedStrip::Sk6812::OutputFormat::Rgb;
 	using StripDriver = Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::BitBangRgbDriver<OutputPin, LedCount>;
 	StripDriver Strip{};
 #elif defined(STRIP_DRIVER_STM32_SK6812_RGBW_BITBANG)
-	static constexpr uint8_t OutputPin = 5;
+	static constexpr uint8_t OutputPin = 4;
 	using StripOutput = Inertia::Drivers::Light::LedStrip::Sk6812::OutputFormat::Rgbw;
 	using StripDriver = Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::BitBangRgbwDriver<OutputPin, LedCount>;
 	StripDriver Strip{};
@@ -199,14 +215,34 @@ namespace
 	using Tests = LightStripTester::Tests<SourceColorModel, StripOutput, StripDriver, LedCount>;
 }
 
+#if defined(STRIP_DRIVER_STM32F1_WS2812B_RGB_SPI_DMA) \
+	|| defined(STRIP_DRIVER_STM32F1_SK6812_RGB_SPI_DMA) \
+	|| defined(STRIP_DRIVER_STM32F1_SK6812_RGBW_SPI_DMA)
+void HandleStripTransmitComplete()
+{
+	Strip.HandleTransmitComplete();
+}
+#endif
+
 void setup()
 {
+	delay(1000);
 	Serial.begin(115200);
+	delay(1000);
+	while (!Serial)
+		;;
+	delay(1000);
 	if (!Strip.Start())
 	{
 		Serial.println(F("Strip driver failed to start."));
 		return;
 	}
+
+#if defined(STRIP_DRIVER_STM32F1_WS2812B_RGB_SPI_DMA) \
+	|| defined(STRIP_DRIVER_STM32F1_SK6812_RGB_SPI_DMA) \
+	|| defined(STRIP_DRIVER_STM32F1_SK6812_RGBW_SPI_DMA)
+	SPI.onTransmit(HandleStripTransmitComplete);
+#endif
 
 	Serial.println(F("Light strip driver tester started."));
 	Tests::PushTestFrame(Strip, 0);
@@ -217,9 +253,10 @@ void loop()
 	static uint8_t phase = 0;
 	static uint32_t lastUpdate = 0;
 	const uint32_t now = millis();
-	if (now - lastUpdate >= 200)
+	if (now - lastUpdate >= 1)
 	{
 		lastUpdate = now;
 		Tests::PushTestFrame(Strip, phase++);
 	}
+	//Tests::PushTestFrame(Strip, phase++);
 }

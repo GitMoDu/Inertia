@@ -31,11 +31,13 @@ namespace Inertia
 								return static_cast<uint32_t>((uint64_t(F_CPU) * nanoseconds + 500000000ULL) / 1000000000ULL);
 							}
 
+							/// Measured waveform is ~310ns zero-high, ~620ns one-high, and ~1220ns per symbol.
+							/// These measurements are within typical SK6812 timing tolerances.
 							struct ProtocolTiming
 							{
-								static constexpr uint32_t ZeroHighNs = Inertia::Drivers::Light::LedStrip::Sk6812::Timing::BitBang::ZeroPulseNs;
-								static constexpr uint32_t OneHighNs = Inertia::Drivers::Light::LedStrip::Sk6812::Timing::BitBang::OnePulseNs;
-								static constexpr uint32_t BitPeriodNs = Inertia::Drivers::Light::LedStrip::Sk6812::Timing::BitBang::TotalPeriodNs;
+								static constexpr uint32_t ZeroHighNs = Inertia::Drivers::Light::LedStrip::Sk6812::Timing::BitBang::ZeroPulseNs - 140;
+								static constexpr uint32_t OneHighNs = Inertia::Drivers::Light::LedStrip::Sk6812::Timing::BitBang::OnePulseNs - 115;
+								static constexpr uint32_t BitPeriodNs = Inertia::Drivers::Light::LedStrip::Sk6812::Timing::BitBang::TotalPeriodNs - 290;
 								static constexpr uint32_t ZeroHighCycles = NanosecondsToCycles(ZeroHighNs);
 								static constexpr uint32_t OneHighCycles = NanosecondsToCycles(OneHighNs);
 								static constexpr uint32_t BitPeriodCycles = NanosecondsToCycles(BitPeriodNs);
@@ -98,7 +100,10 @@ namespace Inertia
 
 							static inline void Transmit(const uint8_t* data, const uint16_t length, const GpioWriter& output)
 							{
-								uint16_t remaining = length;
+								uint16_t remaining;
+								uint8_t value;
+								uint8_t mask;
+								bool hasNextBit;
 #if defined(STM32_CORE_VERSION)
 								const uint32_t interruptState = __get_PRIMASK();
 								__disable_irq();
@@ -108,18 +113,36 @@ namespace Inertia
 #else
 #error "SK6812 STM32 bitbang: unsupported STM32 interrupt API."
 #endif
-								while (remaining--)
+								remaining = length - 1;
+								value = *data++;
+								mask = 0x80;
+								hasNextBit = true;
+								while (hasNextBit)
 								{
-									const uint8_t value = *data++;
-									for (uint8_t mask = 0x80; mask; mask >>= 1)
+									const uint32_t start = DwtCycleTimer::Read();
+									const uint32_t highCycles = (value & mask) ? ProtocolTiming::OneHighCycles : ProtocolTiming::ZeroHighCycles;
+									output.High();
+									DwtCycleTimer::WaitFor(start + highCycles);
+									output.Low();
+
+									// Advance/load the next bit while the current symbol is low. Otherwise
+									// this loop work happens after the period deadline and stretches every bit.
+									mask >>= 1;
+									if (mask == 0)
 									{
-										const uint32_t start = DwtCycleTimer::Read();
-										const uint32_t highCycles = (value & mask) ? ProtocolTiming::OneHighCycles : ProtocolTiming::ZeroHighCycles;
-										output.High();
-										DwtCycleTimer::WaitFor(start + highCycles);
-										output.Low();
-										DwtCycleTimer::WaitFor(start + ProtocolTiming::BitPeriodCycles);
+										if (remaining == 0)
+										{
+											hasNextBit = false;
+										}
+										else
+										{
+											--remaining;
+											value = *data++;
+											mask = 0x80;
+										}
 									}
+
+									DwtCycleTimer::WaitFor(start + ProtocolTiming::BitPeriodCycles);
 								}
 #if defined(STM32_CORE_VERSION)
 								if (interruptState == 0)

@@ -21,9 +21,11 @@ Inertia::Drivers::Light::LedStrip::Sk6812::Avr::Spi8MhzRgbwDriver<1> avrSpi8MhzR
 #elif defined(ARDUINO_ARCH_RP2040)
 Inertia::Drivers::Light::LedStrip::Ws2812b::RaspberryPiPico::PioDriver<2, 1> rp2040Ws2812bPioDriver{};
 #elif defined(ARDUINO_ARCH_STM32F1) || defined(ARDUINO_ARCH_STM32)
+Inertia::Drivers::Light::LedStrip::Ws2812b::Stm32::BitBangDriver<4, 1> stm32Ws2812bBitBangDriver{};
 Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::BitBangRgbDriver<5, 1> stm32Sk6812BitBangRgbDriver{};
 Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::BitBangRgbwDriver<6, 1> stm32Sk6812BitBangRgbwDriver{};
 #if defined(ARDUINO_ARCH_STM32F1)
+Inertia::Drivers::Light::LedStrip::Ws2812b::Stm32::SpiDmaDriver<1> stm32Ws2812bDmaDriver{};
 Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::SpiDmaRgbDriver<1> stm32Sk6812DmaRgbDriver{};
 Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::SpiDmaRgbwDriver<1> stm32Sk6812DmaRgbwDriver{};
 #endif
@@ -46,9 +48,11 @@ void setup()
 #elif defined(ARDUINO_ARCH_RP2040)
 	pass = LightStripColorTests::RunRp2040Ws2812bDriverTests(rp2040Ws2812bPioDriver) && pass;
 #elif defined(ARDUINO_ARCH_STM32F1) || defined(ARDUINO_ARCH_STM32)
+	pass = LightStripColorTests::RunStm32Ws2812bBitBangDriverTests(stm32Ws2812bBitBangDriver) && pass;
 	pass = LightStripColorTests::RunStm32Sk6812BitBangDriverTests(
 		stm32Sk6812BitBangRgbDriver, stm32Sk6812BitBangRgbwDriver) && pass;
 #if defined(ARDUINO_ARCH_STM32F1)
+	pass = LightStripColorTests::RunStm32Ws2812bDmaDriverTests(stm32Ws2812bDmaDriver) && pass;
 	pass = LightStripColorTests::RunStm32Sk6812DmaDriverTests(
 		stm32Sk6812DmaRgbDriver, stm32Sk6812DmaRgbwDriver) && pass;
 #endif

@@ -33,7 +33,7 @@ namespace Inertia
 								(void)received;
 							}
 
-							/// Uses an 4 MHz SPI clock with four-clock symbols.
+							/// Uses a 4 MHz SPI clock with four-clock symbols.
 							/// Slightly offspec from the WS2812/WS2812B timing, but within the tolerance of most strips.
 							/// Real waveform is ~250ns on for zero and ~750ns on for one,
 							/// with a nominal ~1000ns symbol period, which can stretch to ~1500ns due to SPI reload spacing.

@@ -100,10 +100,14 @@ namespace LightStripColorTests
 		"WS2812B AVR 4 MHz SPI encoding changed.");
 #endif
 #elif defined(ARDUINO_ARCH_STM32F1) || defined(ARDUINO_ARCH_STM32)
-	static_assert(Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::Detail::ProtocolTiming::ZeroHighNs == Sk6812BitBangTiming::ZeroPulseNs
-		&& Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::Detail::ProtocolTiming::OneHighNs == Sk6812BitBangTiming::OnePulseNs
-		&& Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::Detail::ProtocolTiming::BitPeriodNs == Sk6812BitBangTiming::TotalPeriodNs,
-		"SK6812 STM32 bitbang must calculate pulses from SK6812 timing constants.");
+	static_assert(Inertia::Drivers::Light::LedStrip::Ws2812b::Stm32::Detail::ProtocolTiming::ZeroHighNs == Ws2812bBitBangTiming::ZeroPulseNs - 140
+		&& Inertia::Drivers::Light::LedStrip::Ws2812b::Stm32::Detail::ProtocolTiming::OneHighNs == Ws2812bBitBangTiming::OnePulseNs - 105
+		&& Inertia::Drivers::Light::LedStrip::Ws2812b::Stm32::Detail::ProtocolTiming::BitPeriodNs == Ws2812bBitBangTiming::TotalPeriodNs - 270,
+		"WS2812B STM32 bitbang tuning must remain derived from WS2812B timing constants.");
+	static_assert(Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::Detail::ProtocolTiming::ZeroHighNs == Sk6812BitBangTiming::ZeroPulseNs - 140
+		&& Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::Detail::ProtocolTiming::OneHighNs == Sk6812BitBangTiming::OnePulseNs - 115
+		&& Inertia::Drivers::Light::LedStrip::Sk6812::Stm32::Detail::ProtocolTiming::BitPeriodNs == Sk6812BitBangTiming::TotalPeriodNs - 290,
+		"SK6812 STM32 bitbang tuning must remain derived from SK6812 timing constants.");
 #endif
 
 	inline bool Expect(const bool condition, const __FlashStringHelper* name)
@@ -137,6 +141,13 @@ namespace LightStripColorTests
 		driver.Stop();
 		pass &= Expect(!driver.Push(buffer, size), F("Reject Push after Stop"));
 		return pass;
+	}
+
+	template<typename Driver>
+	inline bool RunStm32Ws2812bBitBangDriverTests(Driver& bitBangDriver)
+	{
+		return ExerciseStartedDriver<Grb>(bitBangDriver, Grb::color_t{ 0x34, 0x12, 0x56 },
+			F("WS2812B STM32 bitbang"));
 	}
 
 	template<typename RgbBitBangDriver, typename RgbwBitBangDriver,
@@ -176,6 +187,7 @@ namespace LightStripColorTests
 			F("SK6812 AVR SPI 8 MHz RGBW"));
 		return pass;
 	}
+
 #endif
 
 	template<typename ExplicitSpiDriver, typename AutomaticSpiDriver, typename BitBangDriver>
@@ -228,6 +240,13 @@ namespace LightStripColorTests
 		pass &= Expect(driver.IsReady(), F("DMA completion restores ready state"));
 		driver.Stop();
 		return pass;
+	}
+
+	template<typename Driver>
+	inline bool RunStm32Ws2812bDmaDriverTests(Driver& dmaDriver)
+	{
+		return ExerciseStm32DmaDriver(dmaDriver, Grb::color_t{ 0x34, 0x12, 0x56 },
+			F("WS2812B STM32 DMA"));
 	}
 
 	template<typename RgbDmaDriver, typename RgbwDmaDriver>

@@ -69,6 +69,8 @@
 #include "Drivers/Light/LedStrip/Ws2812b/Model.h"
 #include "Drivers/Light/LedStrip/Ws2812b/Avr/BitBangDriver.h"
 #include "Drivers/Light/LedStrip/Ws2812b/Avr/SpiDriver.h"
+#include "Drivers/Light/LedStrip/Ws2812b/Stm32/BitBangDriver.h"
+#include "Drivers/Light/LedStrip/Ws2812b/Stm32/DmaDriver.h"
 #include "Drivers/Light/LedStrip/Ws2812b/RaspberryPiPico/PioDriver.h"
 
 #include "Drivers/Light/LedStrip/Sk6812/Model.h"

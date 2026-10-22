@@ -24,6 +24,11 @@ namespace Inertia
 							class SpiDmaTransport : public Inertia::Components::Light::ILightColorDriver<StripColorModelType>
 							{
 							private:
+								/// <summary>
+								/// Uses a nominal 2.25 MHz SPI clock with three-clock symbols: 100 for zero and 110 for one.
+								/// The nominal high times are about ~440 ns for zero and ~875 ns for one, with a bit period of ~1333ns.
+								/// These timings slightly exceed the SK6812B timing tolerances, but are within the tolerances of most strips.
+								/// </summary>
 								struct SpiEncoding
 								{
 									static constexpr uint8_t BitsPerNativeBit = 3;
