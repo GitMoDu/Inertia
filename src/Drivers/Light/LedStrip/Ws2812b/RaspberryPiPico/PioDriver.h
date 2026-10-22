@@ -33,6 +33,7 @@ namespace Inertia
 							static constexpr uint8_t MaxQueuedPixelsAfterSubmit = 9;
 							static constexpr uint8_t InvalidStateMachine = UINT8_MAX;
 							static constexpr uint8_t InvalidPin = UINT8_MAX;
+							/// Pico 1 scope capture: ~355ns zero-high, ~850ns one-high, and ~1250ns per symbol.
 							static constexpr uint8_t CyclesPerBit = 10;
 							static constexpr uint8_t GpioPinsPerBase = 32;
 							static constexpr uint8_t DefaultGpioBase = 0;
@@ -111,7 +112,7 @@ namespace Inertia
 								}
 
 								BusyUntilMicros = micros()
-									+ Ws2812b::ResetDelayMicros
+									+ Ws2812b::Timing::BitBang::ResetMicros
 									+ (static_cast<uint32_t>(MaxQueuedPixelsAfterSubmit) * MicrosPerLed);
 								return true;
 							}

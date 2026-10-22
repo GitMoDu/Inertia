@@ -26,13 +26,14 @@ namespace Inertia
 								static const pio_program_t Value;
 							};
 
+							// Keep each symbol at 10 PIO cycles while making a zero high for 3 cycles.
 							template<uint8_t Pin, uint16_t LedCount>
 							const uint16_t PioProgram<Pin, LedCount>::Instructions[4] =
 							{
 								0x6221,
-								0x1123,
-								0x1400,
-								0xa442
+								0x1223,
+								0x1300,
+								0xa342
 							};
 
 							template<uint8_t Pin, uint16_t LedCount>
