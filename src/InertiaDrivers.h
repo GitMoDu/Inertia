@@ -14,6 +14,9 @@
 // Storage driver for LittleFS on SPIFFS or built in flash. Ignored if platform does not support LittleFS.
 #include "Drivers/Storage/LittleFs/FileSystem.h"
 
+// AVR EEPROM storage backed by EmbeddedStorage.
+#include "Drivers/Storage/Eeprom/StructStore.h"
+
 // Maple STM32F1 internal flash backend.
 #include "Drivers/Storage/Flash/Stm32/Maple/InternalFlash.h"
 

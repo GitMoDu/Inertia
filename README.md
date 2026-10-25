@@ -101,11 +101,28 @@ Inertia depends on the following libraries:
 |---|---|
 | [`IntegerSignal`](https://github.com/GitMoDu/IntegerSignal) | Integer-based signal and feature representations used by Inertia components |
 | [`Fletcher`](https://github.com/RobTillaart/Fletcher) | Fletcher checksum support, including Fletcher32 integrity checks used by the flash journal |
+| [`EmbeddedStorage`](https://github.com/GitMoDu/EmbeddedStorage) | CRC-checked AVR EEPROM storage and optional EEPROM wear leveling |
+| [`CRC`](https://github.com/RobTillaart/CRC) | CRC8 dependency required by EmbeddedStorage |
 | [`TaskScheduler`](https://github.com/arkhipenko/TaskScheduler) | Cooperative task scheduling through `TS::Task` and `TS::Scheduler` |
 
-Install these libraries alongside Inertia when using the corresponding components. `TaskScheduler` is required by Inertia’s task-based components, including lifecycle tasks, buffered logging, timestamp services, asynchronous flash journaling, UART watchdogs, and task profiling.
+Install these libraries alongside Inertia when using the corresponding components. The EEPROM driver is available on AVR ATmega328P and ATtiny85 targets and requires both `EmbeddedStorage` and `CRC`. `TaskScheduler` is required by Inertia’s task-based components, including lifecycle tasks, buffered logging, timestamp services, asynchronous flash journaling, UART watchdogs, and task profiling.
 
 Platform-specific features may also require the corresponding Arduino core, filesystem implementation, timer support, or peripheral library for the selected target. Not every Inertia driver requires every platform dependency.
+
+## AVR EEPROM storage
+
+`Inertia::Drivers::Storage::Eeprom::StructStore<TData, Version, BaseAddress>` wraps EmbeddedStorage's CRC-checked `StorageUnit`. `Read` updates its output only when the stored CRC is valid; `Write` synchronously writes the record and verifies it by reading it back. Records must be trivially copyable. `Version` contributes to the default CRC key, so changing it invalidates data written with the previous version; the version is not stored as a separate field.
+
+Include `<InertiaDrivers.h>` to use the backend.
+
+The optional wear-level parameters select the corresponding EmbeddedStorage unit, for example:
+
+```cpp
+using SettingsStore = Inertia::Drivers::Storage::Eeprom::StructStore<
+	Settings, 2, 64, WearLevelTiny, WearLevelTiny::x4>;
+```
+
+`BaseAddress` and the full footprint reported by `UsedSize` must not overlap other EEPROM allocations. The driver checks that the selected unit fits the target EEPROM at compile time. The EmbeddedStorage backend currently supports AVR ATmega328P and ATtiny85 targets. CRC detects accidental corruption; it is not cryptographic authentication.
 
 ## Compatibility
 
