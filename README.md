@@ -111,7 +111,7 @@ Platform-specific features may also require the corresponding Arduino core, file
 
 ## AVR EEPROM storage
 
-`Inertia::Drivers::Storage::Eeprom::StructStore<TData, Version, BaseAddress>` wraps EmbeddedStorage's CRC-checked `StorageUnit`. `Read` updates its output only when the stored CRC is valid; `Write` synchronously writes the record and verifies it by reading it back. Records must be trivially copyable. `Version` contributes to the default CRC key, so changing it invalidates data written with the previous version; the version is not stored as a separate field.
+`Inertia::Drivers::Storage::Eeprom::StructStore<TData, Version, BaseAddress>` wraps EmbeddedStorage's synchronous CRC-checked `StorageUnit`. `Read` updates its output only when the stored CRC is valid; `Write` synchronously writes the record and verifies it by reading it back. Records must be trivially copyable. `Version` contributes to the default CRC key, so changing it invalidates data written with the previous version; the version is not stored as a separate field. For cooperative writes, use `AsyncStructStore` explicitly; it selects EmbeddedStorage's async storage-unit variants and owns the additional record buffer and polling state.
 
 Include `<InertiaDrivers.h>` to use the backend.
 
