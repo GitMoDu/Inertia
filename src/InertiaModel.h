@@ -37,6 +37,10 @@
 #include "Components/Storage/Allocation/Model.h"
 #include "Components/Storage/Allocation/Allocator.h"
 
+// Versioned storage record model and codec.
+#include "Components/Storage/VersionedRecord/Model.h"
+#include "Components/Storage/VersionedRecord/Codec.h"
+
 // FRAM storage model.
 #include "Components/Storage/Fram/Model.h"
 
