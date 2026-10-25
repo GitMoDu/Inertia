@@ -13,6 +13,7 @@
 #include "FusionConvention.h"
 #include "FusionMath.h"
 #include <stdbool.h>
+#include <stdint.h>
 
 //------------------------------------------------------------------------------
 // Definitions
@@ -21,34 +22,52 @@
  * @brief Settings.
  */
 typedef struct {
+    float sampleRate; // Hz
     FusionConvention convention;
     float gain;
-    float gyroscopeRange;
-    float accelerationRejection;
-    float magneticRejection;
-    unsigned int recoveryTriggerPeriod;
+    float gyroscopeRange; // degrees per second (0 = disabled)
+    float accelerationRejection; // degrees (0 = disabled)
+    float magneticRejection; // degrees (0 = disabled)
+    float rejectionTimeout; // seconds
 } FusionAhrsSettings;
 
 /**
  * @brief AHRS structure. All members are private.
  */
 typedef struct {
-    FusionAhrsSettings settings;
+    // Settings
+    float samplePeriod;
+    FusionConvention convention;
+    float gain;
+    float startupGainRate;
+    bool overrangeEnabled;
+    float overrangeThreshold;
+    float accelerationRejection;
+    float magneticRejection;
+    int32_t rejectionTimeout;
+
+    // Outputs
     FusionQuaternion quaternion;
     FusionVector accelerometer;
-    FusionVector halfGravity;
+
+    // Startup
     bool startup;
-    float rampedGain;
-    float rampedGainStep;
-    bool angularRateRecovery;
-    FusionVector halfAccelerometerFeedback;
-    FusionVector halfMagnetometerFeedback;
+    float startupGain;
+
+    // Gyroscope overrange
+    bool overrangeRecovery;
+
+    // Acceleration rejection
+    FusionVector halfAccelerometerResidual;
+    int32_t accelerationRecoveryTrigger;
+    int32_t accelerationRecoveryThreshold;
     bool accelerometerIgnored;
-    int accelerationRecoveryTrigger;
-    int accelerationRecoveryTimeout;
+
+    // Magnetic rejection
+    FusionVector halfMagnetometerResidual;
+    int32_t magneticRecoveryTrigger;
+    int32_t magneticRecoveryThreshold;
     bool magnetometerIgnored;
-    int magneticRecoveryTrigger;
-    int magneticRecoveryTimeout;
 } FusionAhrs;
 
 /**
@@ -68,7 +87,7 @@ typedef struct {
  */
 typedef struct {
     bool startup;
-    bool angularRateRecovery;
+    bool overrangeRecovery;
     bool accelerationRecovery;
     bool magneticRecovery;
 } FusionAhrsFlags;
@@ -83,15 +102,19 @@ extern const FusionAhrsSettings fusionAhrsDefaultSettings;
 
 void FusionAhrsInitialise(FusionAhrs *const ahrs);
 
-void FusionAhrsRestart(FusionAhrs *const ahrs);
-
 void FusionAhrsSetSettings(FusionAhrs *const ahrs, const FusionAhrsSettings *const settings);
 
-void FusionAhrsUpdate(FusionAhrs *const ahrs, const FusionVector gyroscope, const FusionVector accelerometer, const FusionVector magnetometer, const float deltaTime);
+void FusionAhrsSetSamplePeriod(FusionAhrs *const ahrs, const float samplePeriod);
 
-void FusionAhrsUpdateNoMagnetometer(FusionAhrs *const ahrs, const FusionVector gyroscope, const FusionVector accelerometer, const float deltaTime);
+void FusionAhrsRestart(FusionAhrs *const ahrs);
 
-void FusionAhrsUpdateExternalHeading(FusionAhrs *const ahrs, const FusionVector gyroscope, const FusionVector accelerometer, const float heading, const float deltaTime);
+void FusionAhrsSkipStartup(FusionAhrs *const ahrs);
+
+void FusionAhrsUpdate(FusionAhrs *const ahrs, const FusionVector gyroscope, const FusionVector accelerometer, const FusionVector magnetometer);
+
+void FusionAhrsUpdateNoMagnetometer(FusionAhrs *const ahrs, const FusionVector gyroscope, const FusionVector accelerometer);
+
+void FusionAhrsUpdateExternalHeading(FusionAhrs *const ahrs, const FusionVector gyroscope, const FusionVector accelerometer, const float heading);
 
 FusionQuaternion FusionAhrsGetQuaternion(const FusionAhrs *const ahrs);
 

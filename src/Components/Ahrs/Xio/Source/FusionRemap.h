@@ -10,6 +10,7 @@
 //------------------------------------------------------------------------------
 // Includes
 
+#include "FusionInline.h"
 #include "FusionMath.h"
 
 //------------------------------------------------------------------------------
@@ -22,7 +23,7 @@
  * alignment is +Y-X+Z.
  */
 typedef enum {
-    FusionRemapAlignmentPXPYPZ, /* +X+Y+Z (no remap) */
+    FusionRemapAlignmentPXPYPZ, /* +X+Y+Z (remap disabled) */
     FusionRemapAlignmentPXPZNY, /* +X+Z-Y */
     FusionRemapAlignmentPXNZPY, /* +X-Z+Y */
     FusionRemapAlignmentPXNYNZ, /* +X-Y-Z */
@@ -49,6 +50,11 @@ typedef enum {
 } FusionRemapAlignment;
 
 //------------------------------------------------------------------------------
+// Function declarations
+
+const char *FusionRemapAlignmentToString(const FusionRemapAlignment alignment);
+
+//------------------------------------------------------------------------------
 // Inline functions
 
 /**
@@ -57,7 +63,7 @@ typedef enum {
  * @param alignment Alignment.
  * @return Sensor remapped to the body frame.
  */
-static inline FusionVector FusionRemap(const FusionVector sensor, const FusionRemapAlignment alignment) {
+static FUSION_INLINE FusionVector FusionRemap(const FusionVector sensor, const FusionRemapAlignment alignment) {
     FusionVector result;
     switch (alignment) {
         case FusionRemapAlignmentPXPYPZ:

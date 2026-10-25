@@ -57,6 +57,7 @@ namespace Inertia
 					};
 
 					static constexpr float DefaultGyroscopeRangeDegreesPerSecond = 2000.0f;
+					static constexpr float GyroscopeOverrangeThresholdRatio = 0.98f;
 					static constexpr float MicrosecondsToSeconds = 0.000001f;
 					static constexpr float MinimumBiasSampleRate = 1.0f;
 
@@ -232,15 +233,20 @@ namespace Inertia
 						biasSettings.sampleRate = biasSampleRate > MinimumBiasSampleRate ? biasSampleRate : MinimumBiasSampleRate;
 						FusionBiasSetSettings(&BiasDriver, &biasSettings);
 						gyroscope = FusionBiasUpdate(&BiasDriver, gyroscope);
+						const bool gyroscopeOverrange = IsGyroscopeOverrange(gyroscope);
+						const float ahrsSamplePeriod = gyroscopeOverrange ? 0.0f : deltaTimeSeconds;
 
 						if (SensorMode == SensorModeEnum::AccelerometerGyroscopeAndMagnetometer)
 						{
-							FusionAhrsUpdate(&AhrsDriver, gyroscope, accelerometer, magnetometer, deltaTimeSeconds);
+							FusionAhrsSetSamplePeriod(&AhrsDriver, ahrsSamplePeriod);
+							FusionAhrsUpdate(&AhrsDriver, gyroscope, accelerometer, magnetometer);
 						}
 						else
 						{
-							FusionAhrsUpdateNoMagnetometer(&AhrsDriver, gyroscope, accelerometer, deltaTimeSeconds);
+							FusionAhrsSetSamplePeriod(&AhrsDriver, ahrsSamplePeriod);
+							FusionAhrsUpdateNoMagnetometer(&AhrsDriver, gyroscope, accelerometer);
 						}
+						FusionAhrsSetSamplePeriod(&AhrsDriver, deltaTimeSeconds);
 
 						UpdateGravityRemovedAcceleration();
 						UpdateAhrsAngularVelocity(gyroscope);
@@ -303,6 +309,19 @@ namespace Inertia
 					}
 
 				private:
+					bool IsGyroscopeOverrange(const FusionVector& gyroscope) const
+					{
+						if (GyroscopeRangeDegreesPerSecond <= 0.0f)
+						{
+							return false;
+						}
+
+						const float overrangeThreshold = GyroscopeOverrangeThresholdRatio * GyroscopeRangeDegreesPerSecond;
+						return (fabsf(gyroscope.axis.x) > overrangeThreshold)
+							|| (fabsf(gyroscope.axis.y) > overrangeThreshold)
+							|| (fabsf(gyroscope.axis.z) > overrangeThreshold);
+					}
+
 					void UpdateGravityRemovedAcceleration()
 					{
 						if (!HasAccelerationSource())

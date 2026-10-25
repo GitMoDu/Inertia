@@ -11,13 +11,19 @@
 // Definitions
 
 /**
- * @brief Earth axes convention.
+ * @brief Earth axes convention describing the direction of the earth X, Y, and
+ * Z axes. For example, NWU means that X is pointing north, Y west, and Z up.
  */
 typedef enum {
-    FusionConventionNwu, /* North (X), West (Y), Up (Z) */
-    FusionConventionEnu, /* East (X), North (Y), Up (Z) */
-    FusionConventionNed, /* North (X), East (Y), Down (Z) */
+    FusionConventionNwu, /* North, West, Up (NWU) */
+    FusionConventionEnu, /* East, North, Up (ENU) */
+    FusionConventionNed, /* North, East, Down (NED) */
 } FusionConvention;
+
+//------------------------------------------------------------------------------
+// Function declarations
+
+const char *FusionConventionToString(const FusionConvention convention);
 
 #endif
 
