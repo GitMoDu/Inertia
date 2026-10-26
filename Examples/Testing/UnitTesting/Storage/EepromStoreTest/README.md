@@ -11,6 +11,7 @@ A self-checking Arduino sketch for `Inertia::Drivers::Storage::Eeprom::StructSto
 - Reject a CRC-corrupted record without changing the caller's output.
 - Write multiple records through an `x2` wear-level store, reconstruct the store between writes, and verify the latest record after counter rollover.
 - Complete cooperative async writes for standard and wear-level stores by repeatedly polling, including reads of an unrelated valid record and rejection of a competing write while the EEPROM is busy.
+- Drive an async EEPROM write through the `AsyncWriteTask` TaskScheduler adapter and verify its default reject-while-busy request policy.
 - Benchmark synchronous reads/writes and cooperative async writes for standard and wear-level stores, reporting minimum, maximum, and median (typical) durations over 16 samples.
 - Check at compile time that standard and wear-level stores report their expected storage footprints.
 

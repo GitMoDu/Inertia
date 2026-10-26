@@ -1,5 +1,8 @@
 //#define EEPROM_MOCK_IN_MEMORY
 
+#define _TASK_OO_CALLBACKS
+#include <TScheduler.hpp>
+
 #include <Arduino.h>
 #include <string.h>
 #include <InertiaDrivers.h>
@@ -54,6 +57,31 @@ bool TestStoreRoundTrip()
 
 	TestRecord actual{};
 	return store.Read(actual)
+		&& actual.Sequence == expected.Sequence
+		&& actual.Value == expected.Value;
+}
+
+bool TestAsyncWriteTaskRunsThroughScheduler()
+{
+	EmbeddedEEPROM::EraseEEPROM();
+	TS::Scheduler scheduler;
+	AsyncStore store;
+	AsyncWriteTask<AsyncStore> task(scheduler, store);
+	TestRecord expected{};
+	expected.Sequence = 2468;
+	expected.Value = 135;
+	if (!task.RequestWrite(expected) || task.RequestWrite(expected)) { return false; }
+
+	while (task.IsWriteActive())
+	{
+		scheduler.execute();
+		if (task.IsWriteActive()) { delay(1); }
+	}
+
+	TestRecord actual{};
+	return task.GetCompletedWriteCount() == 1
+		&& task.GetLastCompletedWriteStatus() == AsyncStore::AsyncWriteStatus::Complete
+		&& store.Read(actual)
 		&& actual.Sequence == expected.Sequence
 		&& actual.Value == expected.Value;
 }
@@ -407,6 +435,7 @@ void setup()
 	Report(F("wear-level counter survives reconstruction and rollover"), TestWearLevelStoreKeepsLatestRecord());
 	Report(F("async EEPROM writes complete through task polling"), TestAsyncStoreWriteCompletesThroughPolling());
 	Report(F("async wear-level writes complete through task polling"), TestAsyncWearLevelWriteCompletesThroughPolling());
+	Report(F("async EEPROM task drives writes through TaskScheduler"), TestAsyncWriteTaskRunsThroughScheduler());
 	BenchmarkStorageOperations();
 	if (FailedChecks == 0)
 	{
