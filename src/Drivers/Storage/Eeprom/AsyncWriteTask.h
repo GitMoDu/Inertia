@@ -26,57 +26,57 @@ namespace Inertia
 
 				namespace Internal
 				{
-					template<typename TData, bool TEnabled>
+					template<typename DataType, bool Enabled>
 					class PendingWriteSlot;
 
-					template<typename TData>
-					class PendingWriteSlot<TData, false>
+					template<typename DataType>
+					class PendingWriteSlot<DataType, false>
 					{
 					public:
 						bool HasValue() const { return false; }
-						void Set(const TData&) {}
+						void Set(const DataType&) {}
 						void Clear() {}
-						TData Get() const { return TData{}; }
+						DataType Get() const { return DataType{}; }
 					};
 
-					template<typename TData>
-					class PendingWriteSlot<TData, true>
+					template<typename DataType>
+					class PendingWriteSlot<DataType, true>
 					{
 					private:
-						TData Value{};
+						DataType Value{};
 						bool HasPendingValue = false;
 
 					public:
 						bool HasValue() const { return HasPendingValue; }
-						void Set(const TData& value)
+						void Set(const DataType& value)
 						{
 							Value = value;
 							HasPendingValue = true;
 						}
 						void Clear() { HasPendingValue = false; }
-						TData Get() const { return Value; }
+						DataType Get() const { return Value; }
 					};
 				}
 
 				/// <summary>Runs cooperative EEPROM writes from a TaskScheduler task.</summary>
-				/// <typeparam name="TStore">An AsyncStructStore type.</typeparam>
-				/// <typeparam name="TRequestPolicy">Reject new writes while busy, or retain only the latest pending request.</typeparam>
-				template<typename TStore,
-					AsyncWriteRequestPolicyEnum TRequestPolicy = AsyncWriteRequestPolicyEnum::RejectWhileBusy>
+				/// <typeparam name="StoreType">An AsyncStructStore type.</typeparam>
+				/// <typeparam name="RequestPolicyEnum">Reject new writes while busy, or retain only the latest pending request.</typeparam>
+				template<typename StoreType,
+					AsyncWriteRequestPolicyEnum RequestPolicyEnum = AsyncWriteRequestPolicyEnum::RejectWhileBusy>
 				class AsyncWriteTask : public TS::Task
 				{
 				private:
-					using TData = typename TStore::DataType;
-					using AsyncWriteStatus = typename TStore::AsyncWriteStatus;
-					static constexpr bool StoresPendingRequest = TRequestPolicy == AsyncWriteRequestPolicyEnum::ReplacePending;
-					TStore& Store;
-					Internal::PendingWriteSlot<TData, StoresPendingRequest> PendingWrite{};
+					using DataType = typename StoreType::DataType;
+					using AsyncWriteStatus = typename StoreType::AsyncWriteStatus;
+					static constexpr bool StoresPendingRequest = RequestPolicyEnum == AsyncWriteRequestPolicyEnum::ReplacePending;
+					StoreType& Store;
+					Internal::PendingWriteSlot<DataType, StoresPendingRequest> PendingWrite{};
 					AsyncWriteStatus CurrentWriteStatus = AsyncWriteStatus::Idle;
 					AsyncWriteStatus LastCompletedWriteStatus = AsyncWriteStatus::Idle;
 					uint32_t CompletedWriteCount = 0;
 					bool WriteActive = false;
 
-					bool StartWrite(const TData& data)
+					bool StartWrite(const DataType& data)
 					{
 						if (!Store.BeginWrite(data))
 						{
@@ -91,11 +91,11 @@ namespace Inertia
 					}
 
 				public:
-					static_assert(TRequestPolicy == AsyncWriteRequestPolicyEnum::RejectWhileBusy
-						|| TRequestPolicy == AsyncWriteRequestPolicyEnum::ReplacePending,
+					static_assert(RequestPolicyEnum == AsyncWriteRequestPolicyEnum::RejectWhileBusy
+						|| RequestPolicyEnum == AsyncWriteRequestPolicyEnum::ReplacePending,
 						"Unsupported EEPROM async write request policy.");
 
-					AsyncWriteTask(TS::Scheduler& scheduler, TStore& store, const uint32_t pollPeriodMillis = 1)
+					AsyncWriteTask(TS::Scheduler& scheduler, StoreType& store, const uint32_t pollPeriodMillis = 1)
 						: TS::Task(pollPeriodMillis, TASK_FOREVER, &scheduler, false)
 						, Store(store)
 					{}
@@ -103,11 +103,11 @@ namespace Inertia
 					/// <summary>Requests a write. ReplacePending retains only the latest request while a write is active.</summary>
 					/// <param name="data">Record copied by the store when the write starts.</param>
 					/// <returns>True if the write was started or accepted as the pending latest request.</returns>
-					bool RequestWrite(const TData& data)
+					bool RequestWrite(const DataType& data)
 					{
 						if (!WriteActive) { return StartWrite(data); }
 
-						if (TRequestPolicy == AsyncWriteRequestPolicyEnum::ReplacePending)
+						if (RequestPolicyEnum == AsyncWriteRequestPolicyEnum::ReplacePending)
 						{
 							PendingWrite.Set(data);
 							return true;
@@ -139,7 +139,7 @@ namespace Inertia
 						++CompletedWriteCount;
 						if (PendingWrite.HasValue())
 						{
-							const TData next = PendingWrite.Get();
+							const DataType next = PendingWrite.Get();
 							PendingWrite.Clear();
 							StartWrite(next);
 							return true;
