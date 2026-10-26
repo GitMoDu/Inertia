@@ -120,6 +120,8 @@ namespace Inertia
 					StorageUnitType Unit{};
 
 				public:
+					using DataType = TData;
+
 					static constexpr uint16_t BaseAddress = TBaseAddress;
 					static constexpr size_t UsedSize = StorageUnitType::Size();
 
