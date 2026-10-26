@@ -14,20 +14,20 @@ namespace Inertia
 			{
 				using namespace Inertia::Components::Storage::Fram;
 
-				template<typename TData, uint16_t TVersion = 1, uint16_t TBaseAddress = 0>
+				template<typename DataType, uint16_t Version = 1, uint16_t BaseAddressValue = 0>
 				class StructStore
 				{
 				private:
 					static constexpr size_t   VersionOffset = 0;
 					static constexpr size_t   CrcOffset = VersionOffset + sizeof(uint16_t);
 					static constexpr size_t   DataOffset = CrcOffset + sizeof(uint16_t);
-					static constexpr size_t   StoreSize = DataOffset + sizeof(TData);
+					static constexpr size_t   StoreSize = DataOffset + sizeof(DataType);
 
 					static constexpr uint32_t ChecksumSeed =
-						(static_cast<uint32_t>(TVersion) << 16) ^ static_cast<uint32_t>(sizeof(TData)) ^ 3862492193;
+						(static_cast<uint32_t>(Version) << 16) ^ static_cast<uint32_t>(sizeof(DataType)) ^ 3862492193;
 
 				public:
-					static constexpr uint16_t BaseAddress = TBaseAddress;
+					static constexpr uint16_t BaseAddress = BaseAddressValue;
 					static constexpr size_t UsedSize = StoreSize;
 
                 private:
@@ -39,25 +39,25 @@ namespace Inertia
 						: Driver(driver)
 					{}
 
-					bool Write(const TData& data)
+					bool Write(const DataType& data)
 					{
 						uint8_t buf[StoreSize]{};
-						WriteUint16(buf + VersionOffset, TVersion);
+						WriteUint16(buf + VersionOffset, Version);
 						WriteUint16(buf + CrcOffset, ComputeCrc(data));
-						memcpy(buf + DataOffset, &data, sizeof(TData));
+						memcpy(buf + DataOffset, &data, sizeof(DataType));
 
 						return Driver.Write(BaseAddress, buf, StoreSize);
 					}
 
-					bool Read(TData& data)
+					bool Read(DataType& data)
 					{
 						uint8_t buf[StoreSize]{};
 						if (!Driver.Read(BaseAddress, buf, StoreSize)) { return false; }
 
-						if (ReadUint16(buf + VersionOffset) != TVersion) { return false; }
+						if (ReadUint16(buf + VersionOffset) != Version) { return false; }
 
-						TData candidate{};
-						memcpy(&candidate, buf + DataOffset, sizeof(TData));
+						DataType candidate{};
+						memcpy(&candidate, buf + DataOffset, sizeof(DataType));
 
 						if (ReadUint16(buf + CrcOffset) != ComputeCrc(candidate)) { return false; }
 
@@ -68,14 +68,14 @@ namespace Inertia
 					static constexpr size_t GetStoreSize() { return UsedSize; }
 
 				private:
-					uint16_t ComputeCrc(const TData& data)
+					uint16_t ComputeCrc(const DataType& data)
 					{
 						uint8_t seed[sizeof(uint32_t)]{};
 						WriteUint32(seed, ChecksumSeed);
 
 						Hasher.begin();
 						Hasher.add(seed, sizeof(seed));
-						Hasher.add(reinterpret_cast<const uint8_t*>(&data), sizeof(TData));
+						Hasher.add(reinterpret_cast<const uint8_t*>(&data), sizeof(DataType));
 						return Hasher.getFletcher();
 					}
 

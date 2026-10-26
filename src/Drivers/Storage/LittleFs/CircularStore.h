@@ -19,14 +19,14 @@ namespace Inertia
 			{
 				using namespace Inertia::Components::Storage::LittleFs;
 
-				template<typename TRecord, uint32_t TCapacity, uint16_t TVersion = 1>
+				template<typename RecordType, uint32_t Capacity, uint16_t Version = 1>
 				class CircularStore
 				{
 				private:
-					static_assert(TCapacity > 0, "TCapacity must be greater than zero.");
+					static_assert(Capacity > 0, "Capacity must be greater than zero.");
 
-					static constexpr size_t   RecordSize = sizeof(TRecord);
-					static constexpr uint32_t StoredCapacity = TCapacity;
+					static constexpr size_t   RecordSize = sizeof(RecordType);
+					static constexpr uint32_t StoredCapacity = Capacity;
 
 					// Header layout (little-endian):
 					// [0..1]   Version   uint16
@@ -44,9 +44,9 @@ namespace Inertia
 					// Payload that gets checksummed: version + capacity + head + count
 					static constexpr size_t HeaderPayloadSize = sizeof(uint16_t) + sizeof(uint32_t) * 3;
 
-					// Seed unique per (TVersion, TCapacity) combination with Pi digits.
+					// Seed unique per (Version, Capacity) combination with Pi digits.
 					static constexpr uint32_t ChecksumSeed =
-						(static_cast<uint32_t>(TVersion) << 16) ^ TCapacity ^ 3173993693;
+						(static_cast<uint32_t>(Version) << 16) ^ Capacity ^ 3173993693;
 
 				private:
 					const char* Path = nullptr;
@@ -94,7 +94,7 @@ namespace Inertia
 						uint32_t count = 0;
 
 						const bool headerOk = TryReadHeader(file, version, capacity, head, count)
-							&& version == TVersion
+						&& version == Version
 							&& capacity == StoredCapacity
 							&& file.size() == GetFileSize()
 							&& count <= StoredCapacity
@@ -120,7 +120,7 @@ namespace Inertia
 						Started = false;
 					}
 
-					bool Write(const TRecord& record)
+					bool Write(const RecordType& record)
 					{
 						if (!Started) { return false; }
 
@@ -150,7 +150,7 @@ namespace Inertia
 						return true;
 					}
 
-					bool Read(const uint32_t logicalIndex, TRecord& record) const
+					bool Read(const uint32_t logicalIndex, RecordType& record) const
 					{
 						if (!Started || logicalIndex >= Count) { return false; }
 
@@ -316,8 +316,8 @@ namespace Inertia
 						if (!file.seek(0)) { return false; }
 
 						uint8_t buf[HeaderSize]{};
-						WriteUint16(buf + VersionOffset, TVersion);
-						WriteUint16(buf + CrcOffset, ComputeHeaderCrc(TVersion, StoredCapacity, headIndex, count));
+						WriteUint16(buf + VersionOffset, Version);
+						WriteUint16(buf + CrcOffset, ComputeHeaderCrc(Version, StoredCapacity, headIndex, count));
 						WriteUint32(buf + CapacityOffset, StoredCapacity);
 						WriteUint32(buf + HeadOffset, headIndex);
 						WriteUint32(buf + CountOffset, count);
@@ -345,14 +345,14 @@ namespace Inertia
 						return Hasher.getFletcher();
 					}
 
-					bool ReadRecordAtPhysical(File& file, const uint32_t physicalIndex, TRecord& record) const
+					bool ReadRecordAtPhysical(File& file, const uint32_t physicalIndex, RecordType& record) const
 					{
 						const size_t offset = HeaderSize + static_cast<size_t>(physicalIndex) * RecordSize;
 						if (!file.seek(offset)) { return false; }
 						return file.read(reinterpret_cast<uint8_t*>(&record), RecordSize) == RecordSize;
 					}
 
-					bool WriteRecordAtPhysical(File& file, const uint32_t physicalIndex, const TRecord& record)
+					bool WriteRecordAtPhysical(File& file, const uint32_t physicalIndex, const RecordType& record)
 					{
 						const size_t offset = HeaderSize + static_cast<size_t>(physicalIndex) * RecordSize;
 						if (!file.seek(offset)) { return false; }

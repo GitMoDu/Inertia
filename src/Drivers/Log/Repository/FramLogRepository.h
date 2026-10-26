@@ -35,7 +35,7 @@ namespace Inertia
 					}
 				}
 
-				template<uint32_t MaxCapacity = 256, uint16_t TBaseAddress = 0>
+				template<uint32_t MaxCapacity = 256, uint16_t BaseAddressValue = 0>
 				class FramLogRepository
 					: public Inertia::Components::Log::ILogRepository
 				{
@@ -46,10 +46,10 @@ namespace Inertia
 						Inertia::Components::Log::LogRecordStruct,
 						MaxCapacity,
 						StoreVersion,
-						TBaseAddress>;
+						BaseAddressValue>;
 
 				public:
-					static constexpr uint16_t BaseAddress = TBaseAddress;
+					static constexpr uint16_t BaseAddress = BaseAddressValue;
 					static constexpr size_t UsedSize = Store::UsedSize;
 
 				private:

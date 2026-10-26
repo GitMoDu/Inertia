@@ -21,113 +21,113 @@ namespace Inertia
 			{
 				namespace Internal
 				{
-					template<typename TData, uint16_t TVersion>
+					template<typename DataType, uint16_t Version>
 					struct CrcKey
 					{
-						static constexpr uint32_t Value = (static_cast<uint32_t>(TVersion) << 16)
-							| static_cast<uint32_t>(sizeof(TData));
+						static constexpr uint32_t Value = (static_cast<uint32_t>(Version) << 16)
+							| static_cast<uint32_t>(sizeof(DataType));
 					};
 
-					template<bool TAsync, typename TSyncUnit, typename TAsyncUnit>
+					template<bool Async, typename SyncUnitType, typename AsyncUnitType>
 					struct StorageUnitTypeSelector;
 
-					template<typename TSyncUnit, typename TAsyncUnit>
-					struct StorageUnitTypeSelector<false, TSyncUnit, TAsyncUnit>
+					template<typename SyncUnitType, typename AsyncUnitType>
+					struct StorageUnitTypeSelector<false, SyncUnitType, AsyncUnitType>
 					{
-						using Type = TSyncUnit;
+						using Type = SyncUnitType;
 					};
 
-					template<typename TSyncUnit, typename TAsyncUnit>
-					struct StorageUnitTypeSelector<true, TSyncUnit, TAsyncUnit>
+					template<typename SyncUnitType, typename AsyncUnitType>
+					struct StorageUnitTypeSelector<true, SyncUnitType, AsyncUnitType>
 					{
-						using Type = TAsyncUnit;
+						using Type = AsyncUnitType;
 					};
 
-					template<typename TData, uint16_t TVersion, uint16_t TBaseAddress,
-						typename TWearLevelOptionType, TWearLevelOptionType TWearLevelOption, bool TAsync>
+					template<typename DataType, uint16_t Version, uint16_t BaseAddress,
+						typename WearLevelOptionType, WearLevelOptionType WearLevelOption, bool Async>
 					struct StorageUnitSelector;
 
-					template<typename TData, uint16_t TVersion, uint16_t TBaseAddress, NoWearLevel TWearLevelOption, bool TAsync>
-					struct StorageUnitSelector<TData, TVersion, TBaseAddress, NoWearLevel, TWearLevelOption, TAsync>
+					template<typename DataType, uint16_t Version, uint16_t BaseAddress, NoWearLevel WearLevelOption, bool Async>
+					struct StorageUnitSelector<DataType, Version, BaseAddress, NoWearLevel, WearLevelOption, Async>
 					{
-						static_assert(TWearLevelOption == NoWearLevel::x1, "Unsupported EEPROM wear-level option.");
-						using Type = typename StorageUnitTypeSelector<TAsync,
-							::StorageUnit<TBaseAddress, sizeof(TData), CrcKey<TData, TVersion>::Value>,
-							::AsyncStorageUnit<TBaseAddress, sizeof(TData), CrcKey<TData, TVersion>::Value>>::Type;
+						static_assert(WearLevelOption == NoWearLevel::x1, "Unsupported EEPROM wear-level option.");
+						using Type = typename StorageUnitTypeSelector<Async,
+							::StorageUnit<BaseAddress, sizeof(DataType), CrcKey<DataType, Version>::Value>,
+							::AsyncStorageUnit<BaseAddress, sizeof(DataType), CrcKey<DataType, Version>::Value>>::Type;
 					};
 
-					template<typename TData, uint16_t TVersion, uint16_t TBaseAddress, WearLevelTiny TWearLevelOption, bool TAsync>
-					struct StorageUnitSelector<TData, TVersion, TBaseAddress, WearLevelTiny, TWearLevelOption, TAsync>
+					template<typename DataType, uint16_t Version, uint16_t BaseAddress, WearLevelTiny WearLevelOption, bool Async>
+					struct StorageUnitSelector<DataType, Version, BaseAddress, WearLevelTiny, WearLevelOption, Async>
 					{
-						static_assert(static_cast<uint8_t>(TWearLevelOption) >= static_cast<uint8_t>(WearLevelTiny::x2)
-							&& static_cast<uint8_t>(TWearLevelOption) <= static_cast<uint8_t>(WearLevelTiny::x9),
+						static_assert(static_cast<uint8_t>(WearLevelOption) >= static_cast<uint8_t>(WearLevelTiny::x2)
+							&& static_cast<uint8_t>(WearLevelOption) <= static_cast<uint8_t>(WearLevelTiny::x9),
 							"Unsupported tiny EEPROM wear-level option.");
-						using Type = typename StorageUnitTypeSelector<TAsync,
-							::TinyWearLevelUnit<TBaseAddress, sizeof(TData), TWearLevelOption, CrcKey<TData, TVersion>::Value>,
-							::AsyncTinyWearLevelUnit<TBaseAddress, sizeof(TData), TWearLevelOption, CrcKey<TData, TVersion>::Value>>::Type;
+						using Type = typename StorageUnitTypeSelector<Async,
+							::TinyWearLevelUnit<BaseAddress, sizeof(DataType), WearLevelOption, CrcKey<DataType, Version>::Value>,
+							::AsyncTinyWearLevelUnit<BaseAddress, sizeof(DataType), WearLevelOption, CrcKey<DataType, Version>::Value>>::Type;
 					};
 
-					template<typename TData, uint16_t TVersion, uint16_t TBaseAddress, WearLevelShort TWearLevelOption, bool TAsync>
-					struct StorageUnitSelector<TData, TVersion, TBaseAddress, WearLevelShort, TWearLevelOption, TAsync>
+					template<typename DataType, uint16_t Version, uint16_t BaseAddress, WearLevelShort WearLevelOption, bool Async>
+					struct StorageUnitSelector<DataType, Version, BaseAddress, WearLevelShort, WearLevelOption, Async>
 					{
-						static_assert(static_cast<uint8_t>(TWearLevelOption) >= static_cast<uint8_t>(WearLevelShort::x10)
-							&& static_cast<uint8_t>(TWearLevelOption) <= static_cast<uint8_t>(WearLevelShort::x17),
+						static_assert(static_cast<uint8_t>(WearLevelOption) >= static_cast<uint8_t>(WearLevelShort::x10)
+							&& static_cast<uint8_t>(WearLevelOption) <= static_cast<uint8_t>(WearLevelShort::x17),
 							"Unsupported short EEPROM wear-level option.");
-						using Type = typename StorageUnitTypeSelector<TAsync,
-							::ShortWearLevelUnit<TBaseAddress, sizeof(TData), TWearLevelOption, CrcKey<TData, TVersion>::Value>,
-							::AsyncShortWearLevelUnit<TBaseAddress, sizeof(TData), TWearLevelOption, CrcKey<TData, TVersion>::Value>>::Type;
+						using Type = typename StorageUnitTypeSelector<Async,
+							::ShortWearLevelUnit<BaseAddress, sizeof(DataType), WearLevelOption, CrcKey<DataType, Version>::Value>,
+							::AsyncShortWearLevelUnit<BaseAddress, sizeof(DataType), WearLevelOption, CrcKey<DataType, Version>::Value>>::Type;
 					};
 
-					template<typename TData, uint16_t TVersion, uint16_t TBaseAddress, WearLevelLong TWearLevelOption, bool TAsync>
-					struct StorageUnitSelector<TData, TVersion, TBaseAddress, WearLevelLong, TWearLevelOption, TAsync>
+					template<typename DataType, uint16_t Version, uint16_t BaseAddress, WearLevelLong WearLevelOption, bool Async>
+					struct StorageUnitSelector<DataType, Version, BaseAddress, WearLevelLong, WearLevelOption, Async>
 					{
-						static_assert(static_cast<uint8_t>(TWearLevelOption) >= static_cast<uint8_t>(WearLevelLong::x18)
-							&& static_cast<uint8_t>(TWearLevelOption) <= static_cast<uint8_t>(WearLevelLong::x33),
+						static_assert(static_cast<uint8_t>(WearLevelOption) >= static_cast<uint8_t>(WearLevelLong::x18)
+							&& static_cast<uint8_t>(WearLevelOption) <= static_cast<uint8_t>(WearLevelLong::x33),
 							"Unsupported long EEPROM wear-level option.");
-						using Type = typename StorageUnitTypeSelector<TAsync,
-							::LongWearLevelUnit<TBaseAddress, sizeof(TData), TWearLevelOption, CrcKey<TData, TVersion>::Value>,
-							::AsyncLongWearLevelUnit<TBaseAddress, sizeof(TData), TWearLevelOption, CrcKey<TData, TVersion>::Value>>::Type;
+						using Type = typename StorageUnitTypeSelector<Async,
+							::LongWearLevelUnit<BaseAddress, sizeof(DataType), WearLevelOption, CrcKey<DataType, Version>::Value>,
+							::AsyncLongWearLevelUnit<BaseAddress, sizeof(DataType), WearLevelOption, CrcKey<DataType, Version>::Value>>::Type;
 					};
 
-					template<typename TData, uint16_t TVersion, uint16_t TBaseAddress, WearLevelLongLong TWearLevelOption, bool TAsync>
-					struct StorageUnitSelector<TData, TVersion, TBaseAddress, WearLevelLongLong, TWearLevelOption, TAsync>
+					template<typename DataType, uint16_t Version, uint16_t BaseAddress, WearLevelLongLong WearLevelOption, bool Async>
+					struct StorageUnitSelector<DataType, Version, BaseAddress, WearLevelLongLong, WearLevelOption, Async>
 					{
-						static_assert(static_cast<uint8_t>(TWearLevelOption) >= static_cast<uint8_t>(WearLevelLongLong::x34)
-							&& static_cast<uint8_t>(TWearLevelOption) <= static_cast<uint8_t>(WearLevelLongLong::x65),
+						static_assert(static_cast<uint8_t>(WearLevelOption) >= static_cast<uint8_t>(WearLevelLongLong::x34)
+							&& static_cast<uint8_t>(WearLevelOption) <= static_cast<uint8_t>(WearLevelLongLong::x65),
 							"Unsupported long-long EEPROM wear-level option.");
-						using Type = typename StorageUnitTypeSelector<TAsync,
-							::LongLongWearLevelUnit<TBaseAddress, sizeof(TData), TWearLevelOption, CrcKey<TData, TVersion>::Value>,
-							::AsyncLongLongWearLevelUnit<TBaseAddress, sizeof(TData), TWearLevelOption, CrcKey<TData, TVersion>::Value>>::Type;
+						using Type = typename StorageUnitTypeSelector<Async,
+							::LongLongWearLevelUnit<BaseAddress, sizeof(DataType), WearLevelOption, CrcKey<DataType, Version>::Value>,
+							::AsyncLongLongWearLevelUnit<BaseAddress, sizeof(DataType), WearLevelOption, CrcKey<DataType, Version>::Value>>::Type;
 					};
 				}
 
 				/// <summary>CRC-checked typed storage in AVR EEPROM, optionally using EmbeddedStorage wear leveling.</summary>
-				/// <typeparam name="TData">Trivially copyable record type to persist.</typeparam>
-				/// <typeparam name="TVersion">Version included in the CRC key; changing it invalidates existing records.</typeparam>
-				/// <typeparam name="TBaseAddress">Starting EEPROM address reserved for this store.</typeparam>
-				/// <typeparam name="TWearLevelOptionType">EmbeddedStorage wear-level option type.</typeparam>
-				/// <typeparam name="TWearLevelOption">Wear-level option, or <c>NoWearLevel::x1</c>.</typeparam>
-				template<typename TData, uint16_t TVersion = 1, uint16_t TBaseAddress = 0,
-					typename TWearLevelOptionType = NoWearLevel,
-					TWearLevelOptionType TWearLevelOption = NoWearLevel::x1, bool TAsync = false>
+				/// <typeparam name="data_type">Trivially copyable record type to persist.</typeparam>
+				/// <typeparam name="Version">Version included in the CRC key; changing it invalidates existing records.</typeparam>
+				/// <typeparam name="base_address">Starting EEPROM address reserved for this store.</typeparam>
+				/// <typeparam name="WearLevelOptionType">EmbeddedStorage wear-level option type.</typeparam>
+				/// <typeparam name="WearLevelOption">Wear-level option, or <c>NoWearLevel::x1</c>.</typeparam>
+				template<typename data_type, uint16_t Version = 1, uint16_t base_address = 0,
+					typename WearLevelOptionType = NoWearLevel,
+					WearLevelOptionType WearLevelOption = NoWearLevel::x1, bool Async = false>
 				class StructStoreBase
 				{
 				private:
-					static_assert(sizeof(TData) <= 65535u, "EEPROM struct size must fit in EmbeddedStorage's uint16_t size.");
+					static_assert(sizeof(data_type) <= 65535u, "EEPROM struct size must fit in EmbeddedStorage's uint16_t size.");
 				protected:
-					using StorageUnitType = typename Internal::StorageUnitSelector<TData, TVersion, TBaseAddress,
-						TWearLevelOptionType, TWearLevelOption, TAsync>::Type;
+					using StorageUnitType = typename Internal::StorageUnitSelector<data_type, Version, base_address,
+						WearLevelOptionType, WearLevelOption, Async>::Type;
 					StorageUnitType Unit{};
 
 				public:
-					using DataType = TData;
+					using DataType = data_type;
 
-					static constexpr uint16_t BaseAddress = TBaseAddress;
+					static constexpr uint16_t BaseAddress = base_address;
 					static constexpr size_t UsedSize = StorageUnitType::Size();
 
-					static_assert(__is_trivially_copyable(TData),
+					static_assert(__is_trivially_copyable(data_type),
 						"EEPROM struct stores require trivially copyable data.");
-					static_assert(StorageUnitType::Address() == TBaseAddress,
+					static_assert(StorageUnitType::Address() == base_address,
 						"The EEPROM storage unit must start at its declared base address.");
 					static_assert(static_cast<uint32_t>(StorageUnitType::Address()) + StorageUnitType::Size()
 						<= EmbeddedEEPROM::Size(), "The EEPROM storage unit exceeds the device capacity.");
@@ -135,54 +135,54 @@ namespace Inertia
 					/// <summary>Writes a record synchronously and verifies it by reading it back.</summary>
 					/// <param name="data">Record to persist.</param>
 					/// <returns>True if the record was written and verified.</returns>
-					bool Write(const TData& data)
+					bool Write(const data_type& data)
 					{
 						if (EmbeddedEEPROM::IsAsyncOperationActive()) { return false; }
 						const uint8_t* source = reinterpret_cast<const uint8_t*>(&data);
 						Unit.WriteData(source);
 
-						uint8_t verification[sizeof(TData)]{};
+						uint8_t verification[sizeof(data_type)]{};
 						return Unit.ReadData(verification)
-							&& memcmp(source, verification, sizeof(TData)) == 0;
+							&& memcmp(source, verification, sizeof(data_type)) == 0;
 					}
 
 					/// <summary>Reads a record only when its CRC is valid; otherwise leaves <paramref name="data"/> unchanged.</summary>
 					/// <param name="data">Destination for a valid record.</param>
 					/// <returns>True if a valid record was read.</returns>
-					bool Read(TData& data)
+					bool Read(data_type& data)
 					{
-						uint8_t buffer[sizeof(TData)]{};
+						uint8_t buffer[sizeof(data_type)]{};
 						if (!Unit.ReadData(buffer)) { return false; }
 
-						memcpy(&data, buffer, sizeof(TData));
+						memcpy(&data, buffer, sizeof(data_type));
 						return true;
 					}
 				};
 
-				template<typename TData, uint16_t TVersion = 1, uint16_t TBaseAddress = 0,
-					typename TWearLevelOptionType = NoWearLevel,
-					TWearLevelOptionType TWearLevelOption = NoWearLevel::x1>
-				class StructStore : public StructStoreBase<TData, TVersion, TBaseAddress,
-					TWearLevelOptionType, TWearLevelOption, false>
+				template<typename DataType, uint16_t Version = 1, uint16_t BaseAddress = 0,
+					typename WearLevelOptionType = NoWearLevel,
+					WearLevelOptionType WearLevelOption = NoWearLevel::x1>
+				class StructStore : public StructStoreBase<DataType, Version, BaseAddress,
+					WearLevelOptionType, WearLevelOption, false>
 				{};
 
-				template<typename TData, uint16_t TVersion = 1, uint16_t TBaseAddress = 0,
-					typename TWearLevelOptionType = NoWearLevel,
-					TWearLevelOptionType TWearLevelOption = NoWearLevel::x1>
-				class AsyncStructStore : public StructStoreBase<TData, TVersion, TBaseAddress,
-					TWearLevelOptionType, TWearLevelOption, true>
+				template<typename DataType, uint16_t Version = 1, uint16_t BaseAddress = 0,
+					typename WearLevelOptionType = NoWearLevel,
+					WearLevelOptionType WearLevelOption = NoWearLevel::x1>
+				class AsyncStructStore : public StructStoreBase<DataType, Version, BaseAddress,
+					WearLevelOptionType, WearLevelOption, true>
 				{
 				private:
-					TData AsyncData{};
+					DataType AsyncData{};
 					EmbeddedEEPROM::AsyncOperationStateEnum AsyncWriteState = EmbeddedEEPROM::AsyncOperationStateEnum::Idle;
 
 				public:
 					using AsyncWriteStatus = EmbeddedEEPROM::AsyncOperationStateEnum;
 
-					bool BeginWrite(const TData& data)
+					bool BeginWrite(const DataType& data)
 					{
 						if (AsyncWriteState == AsyncWriteStatus::Pending) { return false; }
-						memcpy(&AsyncData, &data, sizeof(TData));
+						memcpy(&AsyncData, &data, sizeof(DataType));
 						if (!this->Unit.BeginWriteData(reinterpret_cast<const uint8_t*>(&AsyncData))) { return false; }
 						AsyncWriteState = AsyncWriteStatus::Pending;
 						return true;
@@ -194,9 +194,9 @@ namespace Inertia
 						AsyncWriteState = this->Unit.PollWriteData();
 						if (AsyncWriteState == AsyncWriteStatus::Complete)
 						{
-							uint8_t verification[sizeof(TData)]{};
+							uint8_t verification[sizeof(DataType)]{};
 							if (!this->Unit.ReadData(verification)
-								|| memcmp(&AsyncData, verification, sizeof(TData)) != 0)
+								|| memcmp(&AsyncData, verification, sizeof(DataType)) != 0)
 							{
 								AsyncWriteState = AsyncWriteStatus::Failed;
 							}

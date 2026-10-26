@@ -19,17 +19,17 @@ namespace Inertia
 			{
 				using namespace Inertia::Components::Storage::LittleFs;
 
-				template<typename TData, uint16_t TVersion = 1>
+				template<typename DataType, uint16_t Version = 1>
 				class StructStore
 				{
 				private:
 					static constexpr size_t VersionOffset = 0;
 					static constexpr size_t CrcOffset = VersionOffset + sizeof(uint16_t);
 					static constexpr size_t DataOffset = CrcOffset + sizeof(uint16_t);
-					static constexpr size_t FileSize = DataOffset + sizeof(TData);
+					static constexpr size_t FileSize = DataOffset + sizeof(DataType);
 
 					static constexpr uint32_t ChecksumSeed =
-						(static_cast<uint32_t>(TVersion) << 16) ^ static_cast<uint32_t>(sizeof(TData)) ^ 1342608689;
+						(static_cast<uint32_t>(Version) << 16) ^ static_cast<uint32_t>(sizeof(DataType)) ^ 1342608689;
 
 				private:
 					const char* Path;
@@ -40,7 +40,7 @@ namespace Inertia
 						: Path(path)
 					{}
 
-					bool Write(const TData& data)
+					bool Write(const DataType& data)
 					{
 						if (LittleFS.exists(Path) && !LittleFS.remove(Path)) { return false; }
 
@@ -55,7 +55,7 @@ namespace Inertia
 						return ok;
 					}
 
-					bool Read(TData& data)
+					bool Read(DataType& data)
 					{
 						File file = LittleFS.open(Path, "r");
 						if (!file) { return false; }
@@ -77,29 +77,29 @@ namespace Inertia
 					}
 
 				private:
-					bool WritePayload(File& file, const TData& data)
+					bool WritePayload(File& file, const DataType& data)
 					{
 						if (!file.seek(0)) { return false; }
 
 						uint8_t buf[FileSize]{};
-						WriteUint16(buf + VersionOffset, TVersion);
+						WriteUint16(buf + VersionOffset, Version);
 						WriteUint16(buf + CrcOffset, ComputeCrc(data));
-						memcpy(buf + DataOffset, &data, sizeof(TData));
+						memcpy(buf + DataOffset, &data, sizeof(DataType));
 
 						return file.write(buf, FileSize) == FileSize;
 					}
 
-					bool TryReadPayload(File& file, TData& data)
+					bool TryReadPayload(File& file, DataType& data)
 					{
 						if (file.size() != FileSize || !file.seek(0)) { return false; }
 
 						uint8_t buf[FileSize]{};
 						if (file.read(buf, FileSize) != FileSize) { return false; }
 
-						if (ReadUint16(buf + VersionOffset) != TVersion) { return false; }
+						if (ReadUint16(buf + VersionOffset) != Version) { return false; }
 
-						TData candidate{};
-						memcpy(&candidate, buf + DataOffset, sizeof(TData));
+						DataType candidate{};
+						memcpy(&candidate, buf + DataOffset, sizeof(DataType));
 
 						if (ReadUint16(buf + CrcOffset) != ComputeCrc(candidate)) { return false; }
 
@@ -107,14 +107,14 @@ namespace Inertia
 						return true;
 					}
 
-					uint16_t ComputeCrc(const TData& data)
+					uint16_t ComputeCrc(const DataType& data)
 					{
 						uint8_t seed[sizeof(uint32_t)]{};
 						WriteUint32(seed, ChecksumSeed);
 
 						Hasher.begin();
 						Hasher.add(seed, sizeof(seed));
-						Hasher.add(reinterpret_cast<const uint8_t*>(&data), sizeof(TData));
+						Hasher.add(reinterpret_cast<const uint8_t*>(&data), sizeof(DataType));
 						return Hasher.getFletcher();
 					}
 

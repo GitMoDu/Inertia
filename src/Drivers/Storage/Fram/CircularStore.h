@@ -14,13 +14,13 @@ namespace Inertia
 			{
 				using namespace Inertia::Components::Storage::Fram;
 
-				template<typename TRecord, uint32_t TCapacity, uint16_t TVersion = 1, uint16_t TBaseAddress = 0>
+				template<typename RecordType, uint32_t Capacity, uint16_t Version = 1, uint16_t BaseAddressValue = 0>
 				class CircularStore
 				{
 				private:
-					static_assert(TCapacity > 0, "TCapacity must be greater than zero.");
+					static_assert(Capacity > 0, "Capacity must be greater than zero.");
 
-					static constexpr size_t RecordSize = sizeof(TRecord);
+					static constexpr size_t RecordSize = sizeof(RecordType);
 					static constexpr size_t VersionOffset = 0;
 					static constexpr size_t CrcOffset = VersionOffset + sizeof(uint16_t);
 					static constexpr size_t CapacityOffset = CrcOffset + sizeof(uint16_t);
@@ -30,12 +30,12 @@ namespace Inertia
 					static constexpr size_t HeaderPayloadSize = sizeof(uint16_t) + sizeof(uint32_t) * 3;
 
 					static constexpr uint32_t ChecksumSeed =
-						(static_cast<uint32_t>(TVersion) << 16) ^ TCapacity ^ 1898275824;
+						(static_cast<uint32_t>(Version) << 16) ^ Capacity ^ 1898275824;
 
-					static constexpr size_t StoreSize = HeaderSize + static_cast<size_t>(TCapacity) * RecordSize;
+					static constexpr size_t StoreSize = HeaderSize + static_cast<size_t>(Capacity) * RecordSize;
 
 				public:
-					static constexpr uint16_t BaseAddress = TBaseAddress;
+					static constexpr uint16_t BaseAddress = BaseAddressValue;
 					static constexpr size_t UsedSize = StoreSize;
 
 				private:
@@ -60,10 +60,10 @@ namespace Inertia
 						uint32_t count = 0;
 
 						if (!TryReadHeader(version, capacity, head, count)
-							|| version != TVersion
-							|| capacity != TCapacity
-							|| count > TCapacity
-							|| (count > 0 && head >= TCapacity))
+							|| version != Version
+							|| capacity != Capacity
+							|| count > Capacity
+							|| (count > 0 && head >= Capacity))
 						{
 							return ResetStorage();
 						}
@@ -81,19 +81,19 @@ namespace Inertia
 						Started = false;
 					}
 
-					bool Write(const TRecord& record)
+					bool Write(const RecordType& record)
 					{
 						if (!Started) { return false; }
 
-						const uint32_t writeIndex = (Count < TCapacity)
-							? (HeadIndex + Count) % TCapacity
+						const uint32_t writeIndex = (Count < Capacity)
+							? (HeadIndex + Count) % Capacity
 							: HeadIndex;
-						const uint32_t newHead = (Count < TCapacity)
+						const uint32_t newHead = (Count < Capacity)
 							? HeadIndex
-							: (HeadIndex + 1) % TCapacity;
-						const uint32_t newCount = (Count < TCapacity)
+							: (HeadIndex + 1) % Capacity;
+						const uint32_t newCount = (Count < Capacity)
 							? Count + 1
-							: TCapacity;
+							: Capacity;
 
 						if (!WriteRecordAtPhysical(writeIndex, record)) { return false; }
 						if (!WriteHeader(newHead, newCount)) { return false; }
@@ -103,7 +103,7 @@ namespace Inertia
 						return true;
 					}
 
-					bool Read(const uint32_t logicalIndex, TRecord& record) const
+					bool Read(const uint32_t logicalIndex, RecordType& record) const
 					{
 						if (!Started || logicalIndex >= Count) { return false; }
 						return ReadRecordAtPhysical(LogicalToPhysical(logicalIndex), record);
@@ -118,7 +118,7 @@ namespace Inertia
 						const uint32_t newCount = Count - trimCount;
 						const uint32_t newHead = (newCount == 0)
 							? 0
-							: (HeadIndex + trimCount) % TCapacity;
+							: (HeadIndex + trimCount) % Capacity;
 
 						if (!WriteHeader(newHead, newCount)) { return false; }
 
@@ -133,8 +133,8 @@ namespace Inertia
 					}
 
 					uint32_t GetCount()    const { return Started ? Count : 0; }
-					uint32_t GetCapacity() const { return TCapacity; }
-					bool     IsFull()      const { return Started && Count >= TCapacity; }
+					uint32_t GetCapacity() const { return Capacity; }
+					bool     IsFull()      const { return Started && Count >= Capacity; }
 					bool     IsStarted()   const { return Started; }
 
 					// Total bytes this store occupies in FRAM — useful for packing multiple stores.
@@ -143,7 +143,7 @@ namespace Inertia
 				private:
 					uint32_t LogicalToPhysical(const uint32_t logicalIndex) const
 					{
-						return (HeadIndex + logicalIndex) % TCapacity;
+						return (HeadIndex + logicalIndex) % Capacity;
 					}
 
 					uint16_t RecordAddress(const uint32_t physicalIndex) const
@@ -180,16 +180,16 @@ namespace Inertia
 					bool WriteHeader(const uint32_t headIndex, const uint32_t count)
 					{
 						uint8_t buf[HeaderSize]{};
-						WriteUint16(buf + VersionOffset, TVersion);
-						WriteUint16(buf + CrcOffset, ComputeHeaderCrc(TVersion, TCapacity, headIndex, count));
-						WriteUint32(buf + CapacityOffset, TCapacity);
+						WriteUint16(buf + VersionOffset, Version);
+						WriteUint16(buf + CrcOffset, ComputeHeaderCrc(Version, Capacity, headIndex, count));
+						WriteUint32(buf + CapacityOffset, Capacity);
 						WriteUint32(buf + HeadOffset, headIndex);
 						WriteUint32(buf + CountOffset, count);
 
 						return Driver.Write(BaseAddress, buf, HeaderSize);
 					}
 
-					bool ReadRecordAtPhysical(const uint32_t physicalIndex, TRecord& record) const
+					bool ReadRecordAtPhysical(const uint32_t physicalIndex, RecordType& record) const
 					{
 						return Driver.Read(
 							RecordAddress(physicalIndex),
@@ -197,7 +197,7 @@ namespace Inertia
 							RecordSize);
 					}
 
-					bool WriteRecordAtPhysical(const uint32_t physicalIndex, const TRecord& record)
+					bool WriteRecordAtPhysical(const uint32_t physicalIndex, const RecordType& record)
 					{
 						return Driver.Write(
 							RecordAddress(physicalIndex),

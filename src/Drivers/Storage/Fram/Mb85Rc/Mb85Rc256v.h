@@ -103,16 +103,16 @@ namespace Inertia
 							return Write(memoryAddress, &value, 1);
 						}
 
-						template<typename TData>
-						bool Read(const uint16_t memoryAddress, TData& value)
+						template<typename DataType>
+						bool Read(const uint16_t memoryAddress, DataType& value)
 						{
-							return Read(memoryAddress, reinterpret_cast<uint8_t*>(&value), sizeof(TData));
+							return Read(memoryAddress, reinterpret_cast<uint8_t*>(&value), sizeof(DataType));
 						}
 
-						template<typename TData>
-						bool Write(const uint16_t memoryAddress, const TData& value)
+						template<typename DataType>
+						bool Write(const uint16_t memoryAddress, const DataType& value)
 						{
-							return Write(memoryAddress, reinterpret_cast<const uint8_t*>(&value), sizeof(TData));
+							return Write(memoryAddress, reinterpret_cast<const uint8_t*>(&value), sizeof(DataType));
 						}
 
 						bool Read(const uint16_t memoryAddress, uint8_t* buffer, const size_t length)

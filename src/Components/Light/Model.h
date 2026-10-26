@@ -69,10 +69,10 @@ namespace Inertia
 				virtual void SetLightIntensities(const Inertia::Components::Light::light_intensity_t* intensities, const uint16_t count) = 0;
 			};
 
-			template<typename TStripColorModel>
+			template<typename StripColorModelType>
 			struct ILightColorDriver : Inertia::Components::Lifecycle::ILifecycleDriver
 			{
-				using color_t = typename TStripColorModel::color_t;
+				using color_t = typename StripColorModelType::color_t;
 
 				~ILightColorDriver() = default;
 

@@ -13,7 +13,7 @@ namespace Inertia
 		{
 			namespace VersionedRecord
 			{
-				template<typename THeaderType>
+				template<typename HeaderType>
 				struct IsCanonicalHeaderType
 				{
 					static constexpr bool Value = false;
@@ -25,13 +25,13 @@ namespace Inertia
 					static constexpr bool Value = true;
 				};
 
-				template<typename TStorageType, typename THeaderType, uint16_t TFormatVersion>
+				template<typename storage_type, typename header_type, uint16_t format_version>
 				struct Codec
 				{
-					using StorageType = TStorageType;
-					using HeaderType = THeaderType;
+					using StorageType = storage_type;
+					using HeaderType = header_type;
 
-					static constexpr uint16_t FormatVersion = TFormatVersion;
+					static constexpr uint16_t FormatVersion = format_version;
 					static constexpr size_t RecordSize = sizeof(StorageType);
 					static constexpr size_t DataSize = RecordSize - sizeof(HeaderType);
 

@@ -27,8 +27,8 @@ namespace Inertia
 
 					using ILifecycleDriver = Inertia::Components::Lifecycle::ILifecycleDriver;
 
-					template<typename TData>
-					using IDataSource = Inertia::Components::DataSource::IDataSource<TData>;
+					template<typename DataType>
+					using IDataSource = Inertia::Components::DataSource::IDataSource<DataType>;
 
 					using range16_t = Inertia::Model::range16_t;
 					using timestamped_quality_flow_translation_t = Inertia::Model::timestamped_quality_flow_translation_t;
