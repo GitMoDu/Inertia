@@ -71,6 +71,20 @@ namespace Inertia
 							: Seed(seed)
 						{}
 
+						ByteFlashJournal(const ByteFlashJournal& other)
+							: Seed(other.Seed)
+						{}
+
+						ByteFlashJournal& operator=(const ByteFlashJournal& other)
+						{
+							if (this != &other && ActiveSave == nullptr)
+							{
+								Seed = other.Seed;
+								Hasher.begin();
+							}
+							return *this;
+						}
+
 						static constexpr uint32_t GetJournalStartAddress()
 						{
 							return Flash::GetFlashBaseAddress() + TargetFlashSizeBytes - JournalSize;
