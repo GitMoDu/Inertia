@@ -5,6 +5,7 @@
 #include <TScheduler.hpp>
 
 #include <InertiaModel.h>
+#include <Components/Storage/FlashJournal/VersionedRecordJournal.h>
 
 #include <stdint.h>
 #include <string.h>
@@ -16,19 +17,101 @@ constexpr uint32_t SerialBaudRate = 115200;
 enum { JournalPageCount = 4, JournalQueueCapacity = 4, JournalEntrySize = 17 };
 using FlashBackend = RamFlash;
 enum { TargetFlashSizeBytes = RamFlash::PageSizeBytes * RamFlash::PageCount };
+constexpr uint32_t JournalSeed = 0x2C5F1414;
 
 struct JournalEntry
 {
 	uint8_t Bytes[JournalEntrySize];
 };
 
-using JournalType = Inertia::Components::Storage::FlashJournal::FlashJournal<
+using JournalType = Inertia::Components::Storage::FlashJournal::Journal<
 	FlashBackend, TargetFlashSizeBytes, JournalPageCount, JournalEntry>;
 using AsyncJournalTask = Inertia::Components::Storage::FlashJournal::AsyncFlashJournalTask<
 	JournalType, JournalQueueCapacity>;
 
-// The journal seed is used to detect whether the journal contents are compatible with the current firmware. Any random value can be used, but it should be changed whenever the journal entry structure changes.
-constexpr uint32_t JournalSeed = 0x2C5F1414;
+using namespace Inertia::Components::Storage::VersionedRecord;
+
+struct JournalVersion1Record
+{
+	HeaderStruct Header;
+	uint32_t Value;
+};
+
+struct JournalCurrentRecord
+{
+	HeaderStruct Header;
+	uint32_t Value;
+	uint16_t Count;
+};
+
+using JournalCurrentCodec = Codec<JournalCurrentRecord, HeaderStruct, 2>;
+struct JournalVersion1Codec : Codec<JournalVersion1Record, HeaderStruct, 1>
+{
+	using NextCodec = JournalCurrentCodec;
+
+	static bool MigrateToNext(const StorageType& source, JournalCurrentCodec::StorageType& destination)
+	{
+		destination.Value = source.Value;
+		destination.Count = 0;
+		return true;
+	}
+};
+using JournalMigrationDispatcher = Internal::CodecDispatcher<JournalCurrentCodec, JournalVersion1Codec>;
+constexpr size_t JournalVersionedCapacity = Internal::MaximumRecordSize<
+	JournalCurrentCodec, JournalVersion1Codec>::Value;
+using JournalVersionedEnvelope = Envelope<JournalVersionedCapacity>;
+using VersionedJournalType = Inertia::Components::Storage::FlashJournal::Journal<
+	FlashBackend, TargetFlashSizeBytes, JournalPageCount, JournalVersionedEnvelope>;
+using VersionedJournalAdapter = Inertia::Components::Storage::FlashJournal::VersionedRecordJournal<
+	VersionedJournalType, JournalCurrentCodec, JournalMigrationDispatcher, JournalVersionedCapacity>;
+using VersionedAsyncTask = Inertia::Components::Storage::FlashJournal::AsyncFlashJournalTask<
+	VersionedJournalType, JournalQueueCapacity>;
+
+bool RunVersionedRecordJournalTests()
+{
+	RamFlash::Reset();
+	VersionedJournalType journal(JournalSeed);
+	VersionedJournalAdapter storage(journal);
+	JournalCurrentRecord expected{};
+	expected.Value = 654321;
+	expected.Count = 37;
+	bool passed = storage.Save(expected);
+	auto result = storage.Load();
+	passed = result.HasRecord() && result.Record.Value == expected.Value
+		&& result.Record.Count == expected.Count && result.Sequence == 1 && passed;
+
+	JournalVersion1Record legacy{};
+	legacy.Value = 123456;
+	JournalVersionedEnvelope envelope{};
+	envelope.Size = static_cast<uint16_t>(JournalVersion1Codec::RecordSize);
+	passed = JournalVersion1Codec::Encode(legacy, envelope.Bytes, JournalVersionedCapacity)
+		== CodecResultEnum::Success && passed;
+	passed = journal.Save(envelope) && passed;
+	result = storage.Load();
+	passed = result.HasRecord() && result.Record.Value == legacy.Value
+		&& result.Record.Count == 0 && result.Sequence == 2 && passed;
+
+	TS::Scheduler versionedScheduler{};
+	VersionedAsyncTask asyncTask(versionedScheduler, journal);
+	expected.Value = 765432;
+	expected.Count = 41;
+	passed = storage.QueueSave(asyncTask, expected) && passed;
+	uint16_t callbacks = 0;
+	while (asyncTask.GetPendingOperationCount() != 0 && callbacks++ < 32)
+	{
+		versionedScheduler.execute();
+		delay(1);
+	}
+	result = storage.Load();
+	passed = asyncTask.GetPendingOperationCount() == 0 && asyncTask.GetLastOperationSucceeded()
+		&& result.HasRecord() && result.Record.Value == expected.Value
+		&& result.Record.Count == expected.Count && result.Sequence == 3 && passed;
+	Serial.println(passed
+		? F("PASS: versioned journal current round-trip, legacy migration, and async save.")
+		: F("FAIL: versioned journal integration test."));
+	return passed;
+}
+
 static_assert(JournalType::GetGeometry().StartAddress == JournalType::GetJournalStartAddress(),
 	"Flash-journal geometry must be available at compile time.");
 TS::Scheduler Scheduler{};
@@ -145,27 +228,34 @@ bool RunJournalTests()
 bool RunLoadAndFormatTests()
 {
 	RamFlash::Reset();
-	bool passed = JournalStorage.Load().Status() == JournalType::LoadStatus::NoValidSnapshot;
+	bool passed = true;
+	const bool erasedLoadPassed = JournalStorage.Load().Status() == JournalType::LoadStatus::NoValidSnapshot;
+	passed = erasedLoadPassed && passed;
 	RamFlash::SetStorageAvailable(false);
-	passed = JournalStorage.Load().Status() == JournalType::LoadStatus::StorageUnavailable && passed;
+	const bool unavailableLoadPassed = JournalStorage.Load().Status() == JournalType::LoadStatus::StorageUnavailable;
+	passed = unavailableLoadPassed && passed;
 	RamFlash::SetStorageAvailable(true);
 
 	const uint16_t fixedRecordWords[] =
 	{
 		0x0001, 0x0000, 0x0201, 0x0403, 0x0605, 0x0807, 0x0A09,
-		0x0C0B, 0x0E0D, 0x100F, 0xFF11, 0x4941, 0x43F2, 0xAA55
+		0x0C0B, 0x0E0D, 0x100F, 0xFF11, 0x5C66, 0x4265, 0xAA55
 	};
 	const uint32_t recordAddress = JournalType::GetJournalStartAddress();
 	for (size_t index = 0; index < sizeof(fixedRecordWords) / sizeof(fixedRecordWords[0]); ++index)
 		passed = RamFlash::ProgramHalfWord(recordAddress + uint32_t(index * 2), fixedRecordWords[index]) && passed;
 	JournalType::LoadResult result = JournalStorage.Load();
 	const JournalType::Snapshot* snapshot = result.GetSnapshot();
-	passed = snapshot != nullptr && snapshot->Sequence == 1 && passed;
+	const bool fixedRecordLoadPassed = snapshot != nullptr && snapshot->Sequence == 1;
+	passed = fixedRecordLoadPassed && passed;
+	bool fixedPayloadPassed = true;
 	for (size_t index = 0; index < JournalEntrySize; ++index)
-		passed = snapshot != nullptr && snapshot->Value.Bytes[index] == index + 1 && passed;
+		fixedPayloadPassed = snapshot != nullptr && snapshot->Value.Bytes[index] == index + 1 && fixedPayloadPassed;
+	passed = fixedPayloadPassed && passed;
 
 	RamFlash::Corrupt(recordAddress + 22, 0);
-	passed = JournalStorage.Load().Status() == JournalType::LoadStatus::NoValidSnapshot && passed;
+	const bool corruptionRejected = JournalStorage.Load().Status() == JournalType::LoadStatus::NoValidSnapshot;
+	passed = corruptionRejected && passed;
 
 	RamFlash::Reset();
 	JournalEntry older{};
@@ -179,12 +269,24 @@ bool RunLoadAndFormatTests()
 	passed = ProgramRecordFixture(recordAddress + JournalType::GetRecordSize(), 1, newer) && passed;
 	result = JournalStorage.Load();
 	snapshot = result.GetSnapshot();
-	passed = snapshot != nullptr && snapshot->Sequence == 1
-		&& memcmp(snapshot->Value.Bytes, newer.Bytes, JournalEntrySize) == 0 && passed;
+	const bool wrappedSequencePassed = snapshot != nullptr && snapshot->Sequence == 1
+		&& memcmp(snapshot->Value.Bytes, newer.Bytes, JournalEntrySize) == 0;
+	passed = wrappedSequencePassed && passed;
 	JournalEntry temporaryEntry{};
 	JournalType temporarySeedJournal(JournalSeed + 2);
-	passed = temporarySeedJournal.Save(temporaryEntry)
-		&& temporarySeedJournal.Load().Status() == JournalType::LoadStatus::Loaded && passed;
+	const bool temporarySeedSavePassed = temporarySeedJournal.Save(temporaryEntry);
+	const bool temporarySeedLoadPassed = temporarySeedJournal.Load().Status() == JournalType::LoadStatus::Loaded;
+	passed = temporarySeedSavePassed && temporarySeedLoadPassed && passed;
+	Serial.println(erasedLoadPassed ? F("PASS: erased-region status.") : F("FAIL: erased-region status."));
+	Serial.println(unavailableLoadPassed ? F("PASS: unavailable-region status.") : F("FAIL: unavailable-region status."));
+	Serial.println(fixedRecordLoadPassed
+		? F("PASS: fixed record checksum and sequence.") : F("FAIL: fixed record checksum and sequence."));
+	Serial.println(fixedPayloadPassed
+		? F("PASS: fixed record payload bytes.") : F("FAIL: fixed record payload bytes."));
+	Serial.println(corruptionRejected ? F("PASS: corrupted record rejection.") : F("FAIL: corrupted record rejection."));
+	Serial.println(wrappedSequencePassed ? F("PASS: sequence wrap ordering.") : F("FAIL: sequence wrap ordering."));
+	Serial.println(temporarySeedSavePassed && temporarySeedLoadPassed
+		? F("PASS: independent seed record.") : F("FAIL: independent seed record."));
 	Serial.println(passed
 		? F("PASS: typed load statuses, known Fletcher32 record bytes, checksum rejection, sequence wrap.")
 		: F("FAIL: load and on-flash compatibility test."));
@@ -550,8 +652,10 @@ void setup()
 	const bool operationOwnershipPassed = RunOperationOwnershipTests();
 	const bool journalCopyOwnershipPassed = RunJournalCopyOwnershipTests();
 	const bool queuePassed = RunAsyncQueueTests();
+	const bool versionedRecordPassed = RunVersionedRecordJournalTests();
 	Serial.println(journalPassed && incrementalSavePassed && loadAndFormatPassed
 		&& interruptedWritePassed && operationOwnershipPassed && journalCopyOwnershipPassed && queuePassed
+		&& versionedRecordPassed
 		? F("ALL TESTS PASS") : F("TESTS FAILED"));
 }
 

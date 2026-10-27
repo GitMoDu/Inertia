@@ -114,6 +114,9 @@ static_assert(Internal::AllMigrationChainsAreValid<CurrentCodec, LegacyCodec>::V
 	"Legacy record codecs must migrate through registered immediate versions.");
 static_assert(Internal::MaximumRecordSize<CurrentCodec, LegacyCodec>::Value == sizeof(CurrentRecord),
 	"The codec registry must report its largest record format.");
+using MigrationEnvelope = Envelope<Internal::MaximumRecordSize<CurrentCodec, LegacyCodec>::Value>;
+static_assert(sizeof(MigrationEnvelope) == sizeof(uint16_t) + Internal::MaximumRecordSize<CurrentCodec, LegacyCodec>::Value,
+	"The versioned-record envelope must reserve a fixed byte capacity plus its encoded-size field.");
 static_assert(Internal::VersionsAreUnique<ChainedCurrentCodec,
 	ChainedV3Codec, ChainedV2Codec, ChainedV1Codec>::Value,
 	"The chained migration versions must be unique.");
