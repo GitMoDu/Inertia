@@ -17,10 +17,10 @@ namespace Inertia
 				namespace Detail
 				{
 					/// <summary>
-					/// Implements the byte-level record storage and recovery for FlashJournal.
+					/// Implements the byte-level record storage and recovery for the journal.
 					/// </summary>
 					template<typename Flash, uint32_t TargetFlashSizeBytes, uint16_t PageCount, uint16_t PayloadSize>
-					class ByteFlashJournal : public SaveActionOwner
+					class ByteJournal : public ISaveActionOwner
 					{
 					public:
 						using size_type = uint16_t;
@@ -67,15 +67,15 @@ namespace Inertia
 						uint32_t Seed;
 
 					public:
-						ByteFlashJournal(const uint32_t seed)
+						ByteJournal(const uint32_t seed)
 							: Seed(seed)
 						{}
 
-						ByteFlashJournal(const ByteFlashJournal& other)
+						ByteJournal(const ByteJournal& other)
 							: Seed(other.Seed)
 						{}
 
-						ByteFlashJournal& operator=(const ByteFlashJournal& other)
+						ByteJournal& operator=(const ByteJournal& other)
 						{
 							if (this != &other && ActiveSave == nullptr)
 							{
@@ -154,9 +154,11 @@ namespace Inertia
 
 						void BeginSave(const uint8_t* payload, SaveOperation& operation)
 						{
-							operation.Abandon();
-							operation.SetPayload(payload);
-							auto& state = operation.GetState();
+							operation.Start(this, payload);
+						}
+
+						bool InitializeSave(SaveActionState& state) override
+						{
 							state.CurrentStatus = SaveStatusEnum::InProgress;
 							state.CurrentError = SaveErrorEnum::None;
 							state.CurrentPhase = Phase::NotStarted;
@@ -167,10 +169,11 @@ namespace Inertia
 							state.Active = false;
 							if (!Flash::IsStorageRegionAvailable(GetJournalStartAddress(), GetJournalEndAddress()))
 							{
-								Fail(state, SaveErrorEnum::StorageUnavailable);
-								return;
+								state.CurrentStatus = SaveStatusEnum::Failed;
+								state.CurrentError = SaveErrorEnum::StorageUnavailable;
+								return false;
 							}
-							operation.Attach(this);
+							return true;
 						}
 
 						SaveStatusEnum StepSave(SaveActionState& state, const uint8_t* payload) override

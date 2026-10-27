@@ -30,6 +30,18 @@ namespace Inertia
 					uint16_t Size;
 				};
 
+				/// <summary>Fixed-capacity byte envelope for storing encoded versioned records in typed backends.</summary>
+				/// <typeparam name="Capacity">Maximum encoded record size reserved across firmware versions.</typeparam>
+				template<size_t Capacity>
+				struct Envelope
+				{
+					static_assert(Capacity > 0 && Capacity <= UINT16_MAX,
+						"Versioned-record envelope capacity must fit its uint16_t size field.");
+
+					uint16_t Size;
+					uint8_t Bytes[Capacity];
+				};
+
 				static_assert(offsetof(HeaderStruct, Checksum) == 0
 					&& offsetof(HeaderStruct, Version) == sizeof(uint32_t)
 					&& offsetof(HeaderStruct, Size) == sizeof(uint32_t) + sizeof(uint16_t),

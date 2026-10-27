@@ -32,10 +32,10 @@ namespace Inertia
 				/// Separate instances targeting the same physical region require external coordination.
 				/// </summary>
 				template<typename Flash, uint32_t TargetFlashSizeBytes, uint16_t JournalPageCount, typename Entry>
-				class FlashJournal
+				class Journal
 				{
 				private:
-					using ByteJournal = Detail::ByteFlashJournal<Flash, TargetFlashSizeBytes, JournalPageCount, sizeof(Entry)>;
+					using ByteJournal = Detail::ByteJournal<Flash, TargetFlashSizeBytes, JournalPageCount, sizeof(Entry)>;
 					using size_type = typename ByteJournal::size_type;
 					ByteJournal Storage;
 
@@ -85,7 +85,7 @@ namespace Inertia
 					static_assert(sizeof(Entry) <= 0xFFFF,
 						"FlashJournal entries must fit the journal payload size.");
 
-					FlashJournal(const uint32_t seed)
+					Journal(const uint32_t seed)
 						: Storage(seed)
 					{}
 

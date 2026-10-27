@@ -84,11 +84,12 @@ namespace Inertia
 					bool Active = false;
 				};
 
-				struct SaveActionOwner
+				struct ISaveActionOwner
 				{
+					virtual bool InitializeSave(SaveActionState& state) = 0;
 					virtual SaveStatusEnum StepSave(SaveActionState& state, const uint8_t* payload) = 0;
 					virtual void Release(SaveActionState& state) = 0;
-					virtual ~SaveActionOwner() {}
+					virtual ~ISaveActionOwner() {}
 				};
 			}
 		}

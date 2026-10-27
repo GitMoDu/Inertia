@@ -13,17 +13,11 @@ namespace Inertia
 			{
 				namespace Detail
 				{
-					template<typename Flash, uint32_t TargetFlashSizeBytes, uint16_t PageCount, uint16_t PayloadSize>
-					class ByteFlashJournal;
-
 					template<uint16_t PayloadSize>
 					class SaveAction
 					{
 					private:
-						template<typename Flash, uint32_t TargetFlashSizeBytes, uint16_t PageCount, uint16_t JournalPayloadSize>
-						friend class ByteFlashJournal;
-
-						SaveActionOwner* Owner = nullptr;
+						ISaveActionOwner* Owner = nullptr;
 						uint8_t Payload[PayloadSize];
 						SaveActionState CurrentState;
 
@@ -65,19 +59,16 @@ namespace Inertia
 							return CurrentState.SequenceValue;
 						}
 
-					private:
-						void SetPayload(const uint8_t* payload)
+						void Start(ISaveActionOwner* owner, const uint8_t* payload)
 						{
+							Abandon();
 							for (uint16_t index = 0; index < PayloadSize; ++index)
 								Payload[index] = payload[index];
+							CurrentState = {};
+							if (owner->InitializeSave(CurrentState))
+								Owner = owner;
 						}
 
-						SaveActionState& GetState()
-						{
-							return CurrentState;
-						}
-
-					public:
 						void Abandon()
 						{
 							if (Owner != nullptr)
@@ -90,11 +81,6 @@ namespace Inertia
 						}
 
 					private:
-						void Attach(SaveActionOwner* owner)
-						{
-							Owner = owner;
-						}
-
 						void Detach()
 						{
 							Owner = nullptr;
