@@ -120,6 +120,8 @@
 
 // Kinematic model and components.
 #include "Components/Kinematic/Model.h"
+#include "Components/Kinematic/CalibratedAcceleration.h"
+#include "Components/Kinematic/CalibratedAngularVelocity.h"
 #include "Components/Kinematic/PeriodicCalibratedFlow.h"
 #include "Components/Kinematic/VelocityEstimator.h"
 #include "Components/Kinematic/PeriodicAngleAwareAltitudeEstimator.h"

@@ -37,6 +37,8 @@
 #include "Drivers/Pwm/Repository/FramRepository.h"
 #include "Drivers/Servo/Repository/LittleFsRepository.h"
 #include "Drivers/Servo/Repository/FramRepository.h"
+#include "Drivers/Kinematic/Repository/Acceleration/FramRepository.h"
+#include "Drivers/Kinematic/Repository/AngularVelocity/FramRepository.h"
 
 // VG6328A UART module.
 #include "Drivers/Uart/VG6328A/DeviceDriver.h" 
