@@ -1,10 +1,15 @@
 #define SERIAL_BAUD_RATE 115200
 
 #include <Arduino.h>
+#include <LittleFS.h>
 #include <InertiaModel.h>
 
 #include "CircularFileStoreTest.h"
 #include "StructStoreTest.h"
+
+#if defined(__riscv) && defined(PICO_RP2350)
+#warning "LittleFS existing-file exists() is currently unsafe on RP2350 RISC-V; storage tests are skipped."
+#endif
 
 inline void PrintPlatform();
 
@@ -23,6 +28,16 @@ void setup()
     Serial.println();
     Serial.println();
 
+    LittleFS.setTimeCallback(nullptr);
+    Serial.println(F("LittleFS timestamps disabled for storage tests."));
+    delay(200);
+
+#if defined(__riscv) && defined(PICO_RP2350)
+    Serial.println(F("WARNING: Skipping LittleFS storage tests on RISC-V because exists() on an existing file halts."));
+    Serial.println(F("LittleFS storage tests SKIPPED."));
+    delay(200);
+    return;
+#else
     const bool circularPass = Inertia::Test::Storage::LittleFs::CircularFileStoreTest::RunTests();
     Serial.println();
     const bool structPass = Inertia::Test::Storage::LittleFs::StructStoreTest::RunTests();
@@ -33,7 +48,8 @@ void setup()
         ? F("LittleFS storage tests PASSED.")
         : F("LittleFS storage tests FAILED."));
     Serial.println();
-    Serial.flush();
+    delay(200);
+#endif
 }
 
 void loop()

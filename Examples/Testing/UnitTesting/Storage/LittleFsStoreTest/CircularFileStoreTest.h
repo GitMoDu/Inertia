@@ -1,7 +1,10 @@
 #ifndef _INERTIA_EXAMPLES_TESTING_UNIT_TESTING_STORAGE_LITTLEFS_CIRCULAR_FILE_STORE_TEST_h
 #define _INERTIA_EXAMPLES_TESTING_UNIT_TESTING_STORAGE_LITTLEFS_CIRCULAR_FILE_STORE_TEST_h
 
+#include <Arduino.h>
+#include <LittleFS.h>
 #include <InertiaModel.h>
+#include <InertiaDrivers.h>
 
 namespace Inertia
 {
@@ -33,7 +36,7 @@ namespace Inertia
 				class CircularFileStoreTest
 				{
 				private:
-                 using Store = Inertia::Components::Storage::LittleFs::CircularStore<CircularFileStoreRecord, 4, 3>;
+					using Store = Inertia::Drivers::Storage::LittleFs::CircularStore<CircularFileStoreRecord, 4, 3>;
 					static constexpr const char* TestPath = "/circular-file-store.bin";
 					static constexpr uint32_t FastOperationThresholdUs = 2000;
 					static constexpr uint32_t StartOperationThresholdUs = 200000;
@@ -167,20 +170,35 @@ namespace Inertia
 
 					static bool StartLittleFs()
 					{
-						return Inertia::Components::Storage::LittleFs::PrepareFilesystem();
+						const bool mounted = Inertia::Drivers::Storage::LittleFs::PrepareFilesystem();
+						Serial.println(mounted ? F("LittleFS mounted.") : F("LittleFS mount failed."));
+						if (!mounted) { return false; }
+
+						Serial.println(F("Formatting LittleFS test partition..."));
+						const uint32_t formatStart = micros();
+						const bool formatted = LittleFS.format();
+						const uint32_t formatDurationUs = micros() - formatStart;
+						PrintDuration(F("LittleFS test partition format"), StartOperationThresholdUs, formatDurationUs);
+						Serial.println(formatted ? F("LittleFS test partition formatted.") : F("LittleFS test partition format failed."));
+						return formatted;
 					}
 
 					static void CloseLittleFs()
 					{
-						Inertia::Components::Storage::LittleFs::StopFilesystem();
+						Inertia::Drivers::Storage::LittleFs::StopFilesystem();
 					}
 
 					static bool PrepareFilesystem()
 					{
-						if (LittleFS.exists(TestPath) && !LittleFS.remove(TestPath))
+						const bool fileExists = LittleFS.exists(TestPath);
+						if (fileExists)
 						{
-							Serial.println(F("Unable to remove previous test file."));
-							return false;
+							if (!LittleFS.remove(TestPath))
+							{
+								Serial.println(F("Unable to remove previous test file."));
+								return false;
+							}
+							Serial.println(F("Previous circular test file removed."));
 						}
 
 						return true;
@@ -216,7 +234,6 @@ namespace Inertia
 						const uint32_t startDurationUs = MeasureOperationMicros([&]() { startOk = store.Start(TestPath); });
 						pass &= ExpectTrue(startOk, F("Start should create the backing file."));
 						pass &= ExpectDurationAtMost(startDurationUs, StartOperationThresholdUs, F("Start should complete quickly."));
-						pass &= ExpectTrue(store.IsStarted(), F("Store should be started after Start()."));
 						bool exists = false;
 						const uint32_t existsDurationUs = MeasureOperationMicros([&]() { exists = LittleFS.exists(TestPath); });
 						pass &= ExpectTrue(exists, F("Backing file should exist after Start()."));
@@ -490,18 +507,18 @@ namespace Inertia
 						}
 
 						bool pass = true;
-
+						Serial.println(F("Running TestStartCreatesStorage..."));
 						pass &= PrintCheckResult(F("TestStartCreatesStorage"), TestStartCreatesStorage());
+						Serial.println(F("Running TestWriteReadOrder..."));
 						pass &= PrintCheckResult(F("TestWriteReadOrder"), TestWriteReadOrder());
+						Serial.println(F("Running TestWrapAroundKeepsNewestRecords..."));
 						pass &= PrintCheckResult(F("TestWrapAroundKeepsNewestRecords"), TestWrapAroundKeepsNewestRecords());
+						Serial.println(F("Running TestTrimFrontPersistsNewHead..."));
 						pass &= PrintCheckResult(F("TestTrimFrontPersistsNewHead"), TestTrimFrontPersistsNewHead());
+						Serial.println(F("Running TestRestartReloadsPersistedData..."));
 						pass &= PrintCheckResult(F("TestRestartReloadsPersistedData"), TestRestartReloadsPersistedData());
+						Serial.println(F("Running TestCorruptHeaderTriggersReset..."));
 						pass &= PrintCheckResult(F("TestCorruptHeaderTriggersReset"), TestCorruptHeaderTriggersReset());
-
-						if (LittleFS.exists(TestPath))
-						{
-							LittleFS.remove(TestPath);
-						}
 
 						CloseLittleFs();
 

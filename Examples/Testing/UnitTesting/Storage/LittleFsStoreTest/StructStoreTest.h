@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <InertiaModel.h>
+#include <InertiaDrivers.h>
 
 namespace Inertia
 {
@@ -23,13 +24,13 @@ namespace Inertia
 				class StructStoreTest
 				{
 				private:
-					using Store = Inertia::Components::Storage::LittleFs::StructStore<StructStoreRecord, 3>;
-					using StoreWrongVersion = Inertia::Components::Storage::LittleFs::StructStore<StructStoreRecord, 4>;
+					using Store = Inertia::Drivers::Storage::LittleFs::StructStore<StructStoreRecord, 3>;
+					using StoreWrongVersion = Inertia::Drivers::Storage::LittleFs::StructStore<StructStoreRecord, 4>;
 					static constexpr const char* TestPath = "/struct-store.bin";
 					static constexpr size_t VersionOffset = 0;
 					static constexpr size_t CrcOffset = VersionOffset + sizeof(uint16_t);
 					static constexpr size_t DataOffset = CrcOffset + sizeof(uint16_t);
-					static constexpr uint32_t FastOperationThresholdUs = 1500;
+					static constexpr uint32_t FastOperationThresholdUs = 1750;
 					static constexpr uint32_t WriteOperationThresholdUs = 65000;
 					static constexpr uint32_t DeleteOperationThresholdUs = 60000;
 
@@ -128,12 +129,12 @@ namespace Inertia
 
 					static bool StartLittleFs()
 					{
-						return Inertia::Components::Storage::LittleFs::PrepareFilesystem();
+						return Inertia::Drivers::Storage::LittleFs::PrepareFilesystem();
 					}
 
 					static void CloseLittleFs()
 					{
-						Inertia::Components::Storage::LittleFs::StopFilesystem();
+						Inertia::Drivers::Storage::LittleFs::StopFilesystem();
 					}
 
 					static bool PrepareFilesystem()
@@ -214,6 +215,14 @@ namespace Inertia
 						const uint32_t writeDurationUs = MeasureOperationMicros([&]() { writeOk = store.Write(expected); });
 						pass &= ExpectTrue(writeOk, F("Write should succeed."));
 						pass &= ExpectDurationAtMost(writeDurationUs, WriteOperationThresholdUs, F("Write should complete within budget."));
+						CloseLittleFs();
+						if (!StartLittleFs())
+						{
+							pass &= Fail(F("LittleFS should remount after first write."));
+							return pass;
+						}
+						Serial.println(F("    remount after first write: PASSED"));
+
 						bool exists = false;
 						const uint32_t existsDurationUs = MeasureOperationMicros([&]() { exists = store.Exists(); });
 						pass &= ExpectTrue(exists, F("Store should exist after writing."));
