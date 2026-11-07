@@ -25,13 +25,13 @@ namespace Inertia
 					static constexpr bool Value = true;
 				};
 
-				template<typename storage_type, typename header_type, uint16_t format_version>
+				template<typename storageType, typename headerType, uint16_t formatVersion>
 				struct Codec
 				{
-					using StorageType = storage_type;
-					using HeaderType = header_type;
+					using StorageType = storageType;
+					using HeaderType = headerType;
 
-					static constexpr uint16_t FormatVersion = format_version;
+					static constexpr uint16_t FormatVersion = formatVersion;
 					static constexpr size_t RecordSize = sizeof(StorageType);
 					static constexpr size_t DataSize = RecordSize - sizeof(HeaderType);
 
