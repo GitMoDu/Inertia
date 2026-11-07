@@ -52,6 +52,12 @@
 #include "Components/Storage/FlashJournal/Journal.h"
 #include "Components/Storage/FlashJournal/AsyncTask.h"
 #include "Components/Storage/FlashJournal/VersionedRecordJournal.h"
+#include "Components/Storage/FlashJournal/AsyncVersionedRecordJournalTask.h"
+
+// EEPROM journal component.
+#include "Components/Storage/EepromJournal/Journal.h"
+#include "Components/Storage/EepromJournal/VersionedRecordJournal.h"
+#include "Components/Storage/EepromJournal/AsyncVersionedRecordJournalTask.h"
 
 // STM32 Maple internal flash model.
 #include "Drivers/Storage/Flash/Stm32/Maple/Model.h"

@@ -20,6 +20,14 @@ namespace Inertia
 					EnumCount
 				};
 
+				enum class SaveStatusEnum : uint8_t
+				{
+					Idle,
+					Pending,
+					Completed,
+					Failed
+				};
+
 				/// <summary>Stores the latest valid snapshot across rotating byte-addressable storage slots.</summary>
 				/// <typeparam name="Entry">Trivially copyable snapshot type stored in each slot.</typeparam>
 				/// <typeparam name="ByteStore">Policy providing CapacityBytes, ReadByte(address), WriteByte(address, value), and IsWriteAvailable().</typeparam>
@@ -132,6 +140,113 @@ namespace Inertia
 				public:
 					using EntryType = Entry;
 					using LoadStatus = LoadStatusEnum;
+					using SaveStatus = SaveStatusEnum;
+
+					class SaveOperation
+					{
+						friend class Journal;
+
+					private:
+						Entry Value{};
+						SaveStatus CurrentStatus = SaveStatus::Idle;
+						uint32_t Sequence = 0;
+						uint16_t TargetSlot = 0;
+						uint32_t WriteIndex = 0;
+						bool BytePending = false;
+						bool SessionActive = false;
+
+						void Finish(const SaveStatus status)
+						{
+							if (SessionActive)
+							{
+								if (BytePending || ByteStore::IsAsyncWriteBusy()) { return; }
+								BytePending = false;
+								ByteStore::EndAsyncWrite();
+								SessionActive = false;
+							}
+							CurrentStatus = status;
+						}
+
+						typename ByteStore::AsyncByteWriteResult TryWriteByte(const uint32_t address, const uint8_t value)
+						{
+							return ByteStore::TryStartAsyncWriteByte(address, value);
+						}
+
+					public:
+						SaveStatus Status() const { return CurrentStatus; }
+
+						SaveStatus Step()
+						{
+							if (CurrentStatus != SaveStatus::Pending) { return CurrentStatus; }
+							if (BytePending)
+							{
+								if (ByteStore::IsAsyncWriteBusy()) { return CurrentStatus; }
+								BytePending = false;
+							}
+
+							const uint32_t payloadSize = SlotSize - CommitSize;
+							if (WriteIndex == payloadSize + 2)
+							{
+								Entry verification{};
+								uint32_t verifiedSequence = 0;
+								if (!ReadSlot(TargetSlot, verification, verifiedSequence)
+									|| verifiedSequence != Sequence
+									|| memcmp(&verification, &Value, sizeof(Entry)) != 0)
+								{
+									Finish(SaveStatus::Failed);
+									return CurrentStatus;
+								}
+								Finish(SaveStatus::Completed);
+								return CurrentStatus;
+							}
+
+							uint32_t address = 0;
+							uint8_t value = 0;
+							if (WriteIndex == 0)
+							{
+								address = Journal::Address(TargetSlot, SlotSize - CommitSize);
+								value = 0;
+							}
+							else if (WriteIndex <= payloadSize)
+							{
+								const uint16_t offset = static_cast<uint16_t>(WriteIndex - 1);
+								address = Journal::Address(TargetSlot, offset);
+								if (offset < SequenceSize)
+								{
+									value = static_cast<uint8_t>(Sequence >> (offset * BitsPerByte));
+								}
+								else if (offset < SequenceSize + sizeof(Entry))
+								{
+									value = reinterpret_cast<const uint8_t*>(&Value)[offset - SequenceSize];
+								}
+								else
+								{
+									const uint32_t checksum = Journal::ComputeChecksum(Sequence, Value);
+									const uint16_t checksumOffset = static_cast<uint16_t>(offset - SequenceSize - sizeof(Entry));
+									value = static_cast<uint8_t>(checksum >> (checksumOffset * BitsPerByte));
+								}
+							}
+							else
+							{
+								address = Journal::Address(TargetSlot, SlotSize - CommitSize);
+								value = CommitMarker;
+							}
+
+							const auto result = this->TryWriteByte(address, value);
+							if (result == ByteStore::AsyncByteWriteResult::Busy)
+							{
+								return CurrentStatus;
+							}
+							if (result == ByteStore::AsyncByteWriteResult::Failed)
+							{
+								Finish(SaveStatus::Failed);
+								return CurrentStatus;
+							}
+							BytePending = result == ByteStore::AsyncByteWriteResult::Started;
+							++WriteIndex;
+							return CurrentStatus;
+						}
+					};
 
 					struct LoadResult
 					{
@@ -203,6 +318,29 @@ namespace Inertia
 						return ReadSlot(targetSlot, verification, verifiedSequence)
 							&& verifiedSequence == nextSequence
 							&& memcmp(&verification, &entry, sizeof(Entry)) == 0;
+					}
+
+					bool BeginSave(const Entry& entry, SaveOperation& operation)
+					{
+						if (operation.CurrentStatus == SaveStatus::Pending || !ByteStore::TryBeginAsyncWrite())
+						{
+							return false;
+						}
+
+						uint16_t latestSlot = 0;
+						Entry latest{};
+						uint32_t latestSequence = 0;
+						const bool hasLatest = FindLatest(latestSlot, latest, latestSequence);
+
+						operation.Value = entry;
+						operation.TargetSlot = hasLatest
+							? static_cast<uint16_t>((latestSlot + 1) % SlotCount) : 0;
+						operation.Sequence = hasLatest ? latestSequence + 1 : 1;
+						operation.WriteIndex = 0;
+						operation.BytePending = false;
+						operation.SessionActive = true;
+						operation.CurrentStatus = SaveStatus::Pending;
+						return true;
 					}
 				};
 			}

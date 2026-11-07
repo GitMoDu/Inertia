@@ -16,6 +16,9 @@
 
 // AVR EEPROM storage backed by EmbeddedStorage.
 #include "Drivers/Storage/Eeprom/StructStore.h"
+#include "Drivers/Storage/Eeprom/AsyncWriteTask.h"
+#include "Drivers/Storage/Eeprom/VersionedRecordStore.h"
+#include "Drivers/Storage/Eeprom/Journal.h"
 
 // Maple STM32F1 internal flash backend.
 #include "Drivers/Storage/Flash/Stm32/Maple/InternalFlash.h"

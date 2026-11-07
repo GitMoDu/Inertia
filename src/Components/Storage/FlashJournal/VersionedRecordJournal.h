@@ -18,12 +18,31 @@ namespace Inertia
 				template<typename JournalType, typename CurrentCodec, typename Dispatcher, size_t Capacity>
 				class VersionedRecordJournal
 				{
-			public:
+				public:
 					using RecordType = typename CurrentCodec::StorageType;
 					using EnvelopeType = VersionedRecord::Envelope<Capacity>;
-					using SaveOperation = typename JournalType::SaveOperation;
+					using JournalSaveOperation = typename JournalType::SaveOperation;
 					using LoadStatus = typename JournalType::LoadStatus;
+					using JournalSaveStatus = typename JournalType::SaveStatus;
 					using CodecResult = VersionedRecord::CodecResultEnum;
+					enum class SaveStatus : uint8_t { Idle, Pending, Completed, Failed };
+
+					struct SaveOperation
+					{
+						JournalSaveOperation JournalOperation{};
+						SaveStatus CurrentStatus = SaveStatus::Idle;
+
+						SaveStatus Status() const { return CurrentStatus; }
+
+						SaveStatus Step()
+						{
+							if (CurrentStatus != SaveStatus::Pending) { return CurrentStatus; }
+							const JournalSaveStatus status = JournalOperation.Step();
+							if (status == JournalSaveStatus::Completed) { CurrentStatus = SaveStatus::Completed; }
+							else if (status == JournalSaveStatus::Failed) { CurrentStatus = SaveStatus::Failed; }
+							return CurrentStatus;
+						}
+					};
 
 					struct LoadResult
 					{
@@ -34,79 +53,82 @@ namespace Inertia
 
 						bool HasRecord() const
 						{
-						return JournalStatus == LoadStatus::Loaded && CodecStatus == CodecResult::Success;
+							return JournalStatus == LoadStatus::Loaded && CodecStatus == CodecResult::Success;
 						}
 					};
 
-			private:
-				JournalType& Journal;
+				private:
+					JournalType& Journal;
 
-				static_assert(Capacity >= CurrentCodec::RecordSize,
-					"FlashJournal versioned-record capacity must fit the current codec record.");
-				static_assert(Capacity <= UINT16_MAX,
-					"FlashJournal versioned-record capacity must fit the envelope size field.");
-				static_assert(sizeof(typename JournalType::entry_type) == sizeof(EnvelopeType),
-					"FlashJournal entry must use the fixed-capacity versioned-record envelope.");
+					static_assert(Capacity >= CurrentCodec::RecordSize,
+						"FlashJournal versioned-record capacity must fit the current codec record.");
+					static_assert(Capacity <= UINT16_MAX,
+						"FlashJournal versioned-record capacity must fit the envelope size field.");
+					static_assert(sizeof(typename JournalType::entry_type) == sizeof(EnvelopeType),
+						"FlashJournal entry must use the fixed-capacity versioned-record envelope.");
 
-				bool Encode(const RecordType& record, EnvelopeType& envelope) const
-				{
-					envelope = {};
-					envelope.Size = static_cast<uint16_t>(CurrentCodec::RecordSize);
-					return CurrentCodec::Encode(record, envelope.Bytes, Capacity) == CodecResult::Success;
-				}
-
-			public:
-				static constexpr size_t RecordCapacity = Capacity;
-
-				explicit VersionedRecordJournal(JournalType& journal)
-					: Journal(journal)
-				{}
-
-				LoadResult Load() const
-				{
-					const auto result = Journal.Load();
-					LoadResult decoded{};
-					decoded.JournalStatus = result.Status();
-					if (!result.HasSnapshot())
+					bool Encode(const RecordType& record, EnvelopeType& envelope) const
 					{
-						decoded.CodecStatus = CodecResult::InvalidSize;
+						envelope = {};
+						envelope.Size = static_cast<uint16_t>(CurrentCodec::RecordSize);
+						return CurrentCodec::Encode(record, envelope.Bytes, Capacity) == CodecResult::Success;
+					}
+
+				public:
+					static constexpr size_t RecordCapacity = Capacity;
+
+					explicit VersionedRecordJournal(JournalType& journal)
+						: Journal(journal)
+					{}
+
+					LoadResult Load() const
+					{
+						const auto result = Journal.Load();
+						LoadResult decoded{};
+						decoded.JournalStatus = result.Status();
+						if (!result.HasSnapshot())
+						{
+							decoded.CodecStatus = CodecResult::InvalidSize;
+							return decoded;
+						}
+
+						const auto* snapshot = result.GetSnapshot();
+						decoded.Sequence = snapshot->Sequence;
+						EnvelopeType envelope{};
+						memcpy(&envelope, &snapshot->Value, sizeof(envelope));
+						if (envelope.Size == 0 || envelope.Size > Capacity)
+						{
+							decoded.CodecStatus = CodecResult::InvalidSize;
+							return decoded;
+						}
+						decoded.CodecStatus = Dispatcher::Decode(envelope.Bytes, envelope.Size, decoded.Record);
 						return decoded;
 					}
 
-					const auto* snapshot = result.GetSnapshot();
-					decoded.Sequence = snapshot->Sequence;
-					EnvelopeType envelope{};
-					memcpy(&envelope, &snapshot->Value, sizeof(envelope));
-					if (envelope.Size == 0 || envelope.Size > Capacity)
+					bool Save(const RecordType& record)
 					{
-						decoded.CodecStatus = CodecResult::InvalidSize;
-						return decoded;
+						EnvelopeType envelope{};
+						return Encode(record, envelope) && Journal.Save(envelope);
 					}
-					decoded.CodecStatus = Dispatcher::Decode(envelope.Bytes, envelope.Size, decoded.Record);
-					return decoded;
-				}
 
-				bool Save(const RecordType& record)
-				{
-					EnvelopeType envelope{};
-					return Encode(record, envelope) && Journal.Save(envelope);
-				}
+					bool BeginSave(const RecordType& record, SaveOperation& operation)
+					{
+						if (operation.Status() == SaveStatus::Pending) { return false; }
+						EnvelopeType envelope{};
+						if (!Encode(record, envelope)) { return false; }
+						Journal.BeginSave(envelope, operation.JournalOperation);
+						if (operation.JournalOperation.Status() != JournalSaveStatus::InProgress) { return false; }
+						operation.CurrentStatus = SaveStatus::Pending;
+						return true;
+					}
 
-				CodecResult BeginSave(const RecordType& record, SaveOperation& operation)
-				{
-					EnvelopeType envelope{};
-					if (!Encode(record, envelope)) { return CodecResult::BufferTooSmall; }
-					Journal.BeginSave(envelope, operation);
-					return CodecResult::Success;
-				}
-
-				template<uint16_t QueueCapacity>
-				bool QueueSave(AsyncFlashJournalTask<JournalType, QueueCapacity>& task, const RecordType& record)
-				{
-					EnvelopeType envelope{};
-					return Encode(record, envelope) && task.QueueSave(envelope);
-				}
-			};
+					template<uint16_t QueueCapacity>
+					bool QueueSave(AsyncFlashJournalTask<JournalType, QueueCapacity>& task, const RecordType& record)
+					{
+						EnvelopeType envelope{};
+						return Encode(record, envelope) && task.QueueSave(envelope);
+					}
+				};
 			}
 		}
 	}

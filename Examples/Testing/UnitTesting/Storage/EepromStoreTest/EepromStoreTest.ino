@@ -8,6 +8,7 @@
 #include <InertiaDrivers.h>
 #include <Drivers/Storage/Eeprom/VersionedRecordStore.h>
 #include <InertiaModel.h>
+#include "JournalFailureByteStore.h"
 
 using namespace Inertia::Drivers::Storage::Eeprom;
 using namespace Inertia::Components::Storage::VersionedRecord;
@@ -61,6 +62,20 @@ using CompetingAsyncStore = AsyncStructStore<TestRecord, 3, 240>;
 using ConcurrentReadStore = StructStore<TestRecord, 3, 256>;
 using JournalStore = Journal<TestRecord, 300, 4, 0x4A4E4C31UL>;
 using VersionedJournalStore = Journal<VersionedStore::EnvelopeType, 400, 4, 0x56524A31UL>;
+using AsyncJournalStore = Journal<TestRecord, 600, 4, 0x414A4E4CUL>;
+using TypedVersionedJournal = Inertia::Components::Storage::EepromJournal::VersionedRecordJournal<
+	VersionedJournalStore, VersionedCurrentCodec, VersionedDispatcher, VersionedCapacity>;
+using AsyncVersionedJournalBackend = Journal<
+	Inertia::Components::Storage::VersionedRecord::Envelope<VersionedCapacity>, 700, 4, 0x41565231UL>;
+using AsyncTypedVersionedJournal = Inertia::Components::Storage::EepromJournal::VersionedRecordJournal<
+	AsyncVersionedJournalBackend, VersionedCurrentCodec, VersionedDispatcher, VersionedCapacity>;
+using AsyncTypedVersionedJournalTask = Inertia::Components::Storage::EepromJournal::AsyncVersionedRecordJournalTask<
+	AsyncTypedVersionedJournal>;
+uint8_t FailingJournalByteStore::Bytes[FailingJournalByteStore::CapacityBytes];
+bool FailingJournalByteStore::OperationActive = false;
+int16_t FailingJournalByteStore::WritesBeforeFailure = -1;
+using FailingJournal = Inertia::Components::Storage::EepromJournal::Journal<
+	TestRecord, FailingJournalByteStore, 0, 3, 0x464A4E4CUL>;
 
 constexpr uint8_t BenchmarkSamples = 16;
 constexpr uint8_t StoreColumnWidth = 14;
@@ -145,25 +160,140 @@ bool TestJournalRotatesAndRecoversPreviousValidSnapshot()
 bool TestVersionedEnvelopeInEepromJournal()
 {
 	EmbeddedEEPROM::EraseEEPROM();
-	VersionedJournalStore journal;
+	VersionedJournalStore backend;
+	TypedVersionedJournal journal(backend);
 	VersionedCurrentRecord expected{};
 	expected.Value = 654321;
 	expected.Count = 42;
-	VersionedJournalStore::EntryType envelope{};
-	envelope.Size = static_cast<uint16_t>(VersionedCurrentCodec::RecordSize);
-	if (VersionedCurrentCodec::Encode(expected, envelope.Bytes, VersionedCapacity) != CodecResultEnum::Success
-		|| !journal.Save(envelope))
+	if (!journal.Save(expected)) { return false; }
+
+	const auto loaded = journal.Load();
+	return loaded.HasRecord() && loaded.CodecStatus == CodecResultEnum::Success
+		&& loaded.Record.Value == expected.Value && loaded.Record.Count == expected.Count;
+}
+
+template<typename JournalType>
+bool CompleteAsyncJournalSave(JournalType& journal, const typename JournalType::EntryType& entry)
+{
+	typename JournalType::SaveOperation operation{};
+	if (!journal.BeginSave(entry, operation)) { return false; }
+	for (uint16_t attempt = 0; attempt < 1000; ++attempt)
 	{
-		return false;
+		const auto status = operation.Step();
+		if (status == JournalType::SaveStatus::Completed) { return true; }
+		if (status == JournalType::SaveStatus::Failed) { return false; }
+		delay(1);
+	}
+	return false;
+}
+
+bool TestAsyncVersionedJournalTaskCompletesAndRejectsBusyRequest()
+{
+	EmbeddedEEPROM::EraseEEPROM();
+	TS::Scheduler scheduler;
+	AsyncVersionedJournalBackend backend;
+	AsyncTypedVersionedJournal journal(backend);
+	AsyncTypedVersionedJournalTask task(scheduler, journal);
+	VersionedCurrentRecord expected{};
+	expected.Value = 789123;
+	expected.Count = 31;
+	VersionedCurrentRecord rejected{};
+	rejected.Value = 1;
+	if (!task.RequestSave(expected) || task.RequestSave(rejected)) { return false; }
+
+	uint16_t callbacks = 0;
+	while (task.IsSaveActive() && callbacks < 1000)
+	{
+		scheduler.execute();
+		++callbacks;
+		if (task.IsSaveActive()) { delay(1); }
 	}
 
 	const auto loaded = journal.Load();
-	VersionedCurrentRecord actual{};
-	return loaded.HasSnapshot()
-		&& Inertia::Components::Storage::VersionedRecord::Internal::CodecDispatcher<
-			VersionedCurrentCodec, VersionedV1Codec>::Decode(loaded.Value.Bytes, loaded.Value.Size, actual)
-			== CodecResultEnum::Success
-		&& actual.Value == expected.Value && actual.Count == expected.Count;
+	return !task.IsSaveActive() && callbacks > 1
+		&& task.GetLastCompletedStatus() == AsyncTypedVersionedJournal::SaveStatus::Completed
+		&& loaded.HasRecord() && loaded.Record.Value == expected.Value && loaded.Record.Count == expected.Count;
+}
+
+bool TestAsyncJournalRotatesSnapshots()
+{
+	EmbeddedEEPROM::EraseEEPROM();
+	AsyncJournalStore journal;
+	TestRecord expected{};
+	for (uint32_t sequence = 1; sequence <= AsyncJournalStore::Capacity + 2; ++sequence)
+	{
+		expected.Sequence = sequence;
+		expected.Value = static_cast<uint16_t>(sequence * 9);
+		if (!CompleteAsyncJournalSave(journal, expected)) { return false; }
+	}
+	const auto loaded = journal.Load();
+	return loaded.HasSnapshot() && loaded.Sequence == AsyncJournalStore::Capacity + 2
+		&& loaded.Value.Sequence == expected.Sequence && loaded.Value.Value == expected.Value;
+}
+
+bool TestAsyncJournalInterruptedBeforeCommitKeepsPreviousSnapshot()
+{
+	EmbeddedEEPROM::EraseEEPROM();
+	AsyncJournalStore journal;
+	TestRecord expected{};
+	for (uint32_t sequence = 1; sequence <= AsyncJournalStore::Capacity; ++sequence)
+	{
+		expected.Sequence = sequence;
+		expected.Value = static_cast<uint16_t>(sequence * 11);
+		if (!CompleteAsyncJournalSave(journal, expected)) { return false; }
+	}
+
+	const auto previous = journal.Load();
+	if (!previous.HasSnapshot()) { return false; }
+	expected.Sequence = previous.Sequence + 1;
+	expected.Value = 999;
+	AsyncJournalStore::SaveOperation interrupted{};
+	if (!journal.BeginSave(expected, interrupted)) { return false; }
+
+	for (uint16_t step = 0; step < AsyncJournalStore::SlotSizeBytes; ++step)
+	{
+		if (interrupted.Step() != AsyncJournalStore::SaveStatus::Pending) { return false; }
+		uint16_t waitCount = 0;
+		while (EmbeddedEepromByteStore::IsAsyncWriteBusy())
+		{
+			if (++waitCount > 100) { return false; }
+			delay(1);
+		}
+	}
+	if (!EmbeddedEEPROM::IsAsyncOperationActive()) { return false; }
+	EmbeddedEepromByteStore::EndAsyncWrite();
+
+	const auto recovered = journal.Load();
+	return recovered.HasSnapshot() && recovered.Sequence == previous.Sequence
+		&& recovered.Value.Sequence == previous.Value.Sequence
+		&& recovered.Value.Value == previous.Value.Value;
+}
+
+bool TestAsyncJournalFailureKeepsPreviousSnapshot()
+{
+	FailingJournalByteStore::Reset();
+	FailingJournal journal;
+	TestRecord previous{};
+	previous.Sequence = 1;
+	previous.Value = 321;
+	if (!journal.Save(previous)) { return false; }
+
+	FailingJournalByteStore::WritesBeforeFailure = 2;
+	TestRecord next{};
+	next.Sequence = 2;
+	next.Value = 654;
+	FailingJournal::SaveOperation operation{};
+	if (!journal.BeginSave(next, operation)) { return false; }
+	for (uint8_t step = 0; step < 20 && operation.Status() == FailingJournal::SaveStatus::Pending; ++step)
+	{
+		operation.Step();
+	}
+
+	const auto recovered = journal.Load();
+	return operation.Status() == FailingJournal::SaveStatus::Failed
+		&& !FailingJournalByteStore::OperationActive
+		&& recovered.HasSnapshot() && recovered.Sequence == 1
+		&& recovered.Value.Sequence == previous.Sequence && recovered.Value.Value == previous.Value;
 }
 
 bool TestAsyncVersionedRecordTaskWritesRecord()
@@ -629,6 +759,13 @@ void setup()
 	Report(F("EEPROM snapshot journal rotates and recovers the previous valid snapshot"),
 		TestJournalRotatesAndRecoversPreviousValidSnapshot());
 	Report(F("EEPROM snapshot journal persists a versioned-record envelope"), TestVersionedEnvelopeInEepromJournal());
+	Report(F("async typed journal task completes and rejects a busy request"),
+		TestAsyncVersionedJournalTaskCompletesAndRejectsBusyRequest());
+	Report(F("async EEPROM journal rotates committed snapshots"), TestAsyncJournalRotatesSnapshots());
+	Report(F("interrupted async journal save before commit preserves the previous snapshot"),
+		TestAsyncJournalInterruptedBeforeCommitKeepsPreviousSnapshot());
+	Report(F("failed async journal save releases the lock and preserves the previous snapshot"),
+		TestAsyncJournalFailureKeepsPreviousSnapshot());
 	Report(F("versioned EEPROM envelope round-trips the current codec"), TestVersionedRecordStoreRoundTrip());
 	Report(F("versioned EEPROM envelope migrates a legacy codec"), TestVersionedRecordStoreMigratesLegacyEnvelope());
 	Report(F("async versioned EEPROM envelope completes and reads back"), TestAsyncVersionedRecordStoreRoundTrip());

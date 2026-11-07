@@ -115,6 +115,8 @@ Platform-specific features may also require the corresponding Arduino core, file
 
 Include `<InertiaDrivers.h>` to use the backend.
 
+For rotating snapshots, `Inertia::Drivers::Storage::Eeprom::Journal<Entry, BaseAddress, SlotCount, Key>` stores sequence, entry, checksum, and commit marker in each slot. `VersionedRecordJournal` wraps that backend with typed record encoding/decoding, while `AsyncVersionedRecordJournalTask` cooperatively advances one accepted save at a time. Requests made while a save is active or the EEPROM operation lock is unavailable are rejected (`false`), not queued or replaced. The commit marker is written last and the completed slot is verified before the operation is reported successful. See `Examples/Testing/UnitTesting/Storage/EepromStoreTest` for the targeted journal checks.
+
 The optional wear-level parameters select the corresponding EmbeddedStorage unit, for example:
 
 ```cpp

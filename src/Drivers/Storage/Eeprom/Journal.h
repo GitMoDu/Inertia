@@ -10,42 +10,83 @@
 
 namespace Inertia
 {
-   namespace Drivers
-    {
-        namespace Storage
-        {
-            namespace Eeprom
-            {
-                using JournalLoadStatusEnum = Inertia::Components::Storage::EepromJournal::LoadStatusEnum;
+	namespace Drivers
+	{
+		namespace Storage
+		{
+			namespace Eeprom
+			{
+				using JournalLoadStatusEnum = Inertia::Components::Storage::EepromJournal::LoadStatusEnum;
 
-                struct EmbeddedEepromByteStore
-                {
-                    static constexpr uint32_t CapacityBytes = EmbeddedEEPROM::Size();
+				struct EmbeddedEepromByteStore
+				{
+					enum class AsyncByteWriteResult : uint8_t
+					{
+						Started,
+						Unchanged,
+						Busy,
+						Failed
+					};
 
-                    static uint8_t ReadByte(const uint32_t address)
-                    {
-                        return EmbeddedEEPROM::ReadBlock(static_cast<uint16_t>(address));
-                    }
+					static constexpr uint32_t CapacityBytes = EmbeddedEEPROM::Size();
 
-                    static bool WriteByte(const uint32_t address, const uint8_t value)
-                    {
-                        if (EmbeddedEEPROM::IsAsyncOperationActive() || address >= CapacityBytes) { return false; }
-                        EmbeddedEEPROM::WriteBlock(static_cast<uint16_t>(address), value);
-                        return EmbeddedEEPROM::ReadBlock(static_cast<uint16_t>(address)) == value;
-                    }
+					static uint8_t ReadByte(const uint32_t address)
+					{
+						return EmbeddedEEPROM::ReadBlock(static_cast<uint16_t>(address));
+					}
 
-                    static bool IsWriteAvailable()
-                    {
-                        return !EmbeddedEEPROM::IsAsyncOperationActive();
-                    }
-                };
+					static bool WriteByte(const uint32_t address, const uint8_t value)
+					{
+						if (EmbeddedEEPROM::IsAsyncOperationActive() || address >= CapacityBytes) { return false; }
+						EmbeddedEEPROM::WriteBlock(static_cast<uint16_t>(address), value);
+						return EmbeddedEEPROM::ReadBlock(static_cast<uint16_t>(address)) == value;
+					}
 
-                template<typename Entry, uint16_t BaseAddress, uint16_t SlotCount, uint32_t Key = sizeof(Entry)>
-                using Journal = Inertia::Components::Storage::EepromJournal::Journal<
-                    Entry, EmbeddedEepromByteStore, BaseAddress, SlotCount, Key>;
-            }
-        }
-    }
+					static bool IsWriteAvailable()
+					{
+						return !EmbeddedEEPROM::IsAsyncOperationActive();
+					}
+
+					static bool TryBeginAsyncWrite()
+					{
+						return EmbeddedEEPROM::TryBeginAsyncOperation();
+					}
+
+					static void EndAsyncWrite()
+					{
+						EmbeddedEEPROM::EndAsyncOperation();
+					}
+
+					static bool IsAsyncWriteBusy()
+					{
+						return EmbeddedEEPROM::IsAsyncByteBusy();
+					}
+
+					static AsyncByteWriteResult TryStartAsyncWriteByte(const uint32_t address, const uint8_t value)
+					{
+						if (address >= CapacityBytes) { return AsyncByteWriteResult::Failed; }
+						switch (EmbeddedEEPROM::TryStartAsyncByte(static_cast<uint16_t>(address), value,
+							EmbeddedEEPROM::AsyncWriteModeEnum::Replace))
+						{
+						case EmbeddedEEPROM::AsyncByteStatusEnum::Started:
+							return AsyncByteWriteResult::Started;
+						case EmbeddedEEPROM::AsyncByteStatusEnum::Unchanged:
+							return AsyncByteWriteResult::Unchanged;
+						case EmbeddedEEPROM::AsyncByteStatusEnum::Busy:
+							return AsyncByteWriteResult::Busy;
+						default:
+							return AsyncByteWriteResult::Failed;
+						}
+					}
+				};
+
+				template<typename Entry, uint16_t BaseAddress, uint16_t SlotCount, uint32_t Key = sizeof(Entry)>
+				using Journal = Inertia::Components::Storage::EepromJournal::Journal<
+					Entry, EmbeddedEepromByteStore, BaseAddress, SlotCount, Key>;
+
+			}
+		}
+	}
 }
 
 #endif
