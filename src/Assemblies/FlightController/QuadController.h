@@ -190,8 +190,8 @@ namespace Inertia
 						const int16_t pitchError = FoldError180(static_cast<int32_t>(orientation.pitch) - static_cast<int32_t>(OrientationTarget.pitch));
 						const int16_t rollError = FoldError180(static_cast<int32_t>(orientation.roll) - static_cast<int32_t>(OrientationTarget.roll));
 						const int16_t yawError = FoldError180(static_cast<int32_t>(orientation.yaw) - static_cast<int32_t>(OrientationTarget.yaw));
-						const int32_t pitchRateError = static_cast<int32_t>(angularVelocity.x) - AngularVelocityTarget.x;
-						const int32_t rollRateError = static_cast<int32_t>(angularVelocity.y) - AngularVelocityTarget.y;
+						const int32_t pitchRateError = static_cast<int32_t>(angularVelocity.y) - AngularVelocityTarget.y;
+						const int32_t rollRateError = static_cast<int32_t>(angularVelocity.x) - AngularVelocityTarget.x;
 						const int32_t yawRateError = static_cast<int32_t>(angularVelocity.z) - AngularVelocityTarget.z;
 						const actuate_t powerTarget = PowerTarget;
 
