@@ -1,7 +1,7 @@
 #ifndef _INERTIA_EXAMPLES_TESTING_UNIT_TESTING_STORAGE_FRAM_CIRCULAR_STORE_TEST_h
 #define _INERTIA_EXAMPLES_TESTING_UNIT_TESTING_STORAGE_FRAM_CIRCULAR_STORE_TEST_h
 
-#include <InertiaModel.h>
+#include <InertiaDrivers.h>
 
 namespace Inertia
 {
@@ -34,7 +34,7 @@ namespace Inertia
 				{
 				private:
 					static constexpr uint16_t TestBaseAddress = 0;
-					using Store = Inertia::Components::Storage::Fram::CircularStore<CircularStoreRecord, 4, 3, TestBaseAddress>;
+					using Store = Inertia::Drivers::Storage::Fram::CircularStore<CircularStoreRecord, 4, 3, TestBaseAddress>;
 
 					static constexpr size_t VersionOffset = 0;
 					static constexpr size_t CrcOffset = VersionOffset + sizeof(uint16_t);

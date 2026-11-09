@@ -10,6 +10,21 @@ namespace Inertia
 	{
 		namespace Kinematic
 		{
+			struct distance_calibration_t
+			{
+				uint16_t BaseDistance;
+				uint16_t MaxDistance;
+			};
+
+			struct IDistanceCalibrationRepository : public Inertia::Components::Lifecycle::ILifecycleDriver
+			{
+				~IDistanceCalibrationRepository() = default;
+
+				virtual bool GetDistanceCalibration(distance_calibration_t& calibration) = 0;
+				virtual bool SetDistanceCalibration(const distance_calibration_t& calibration) = 0;
+				virtual bool ClearDistanceCalibration() = 0;
+			};
+
 			struct acceleration_calibration_t
 			{
 				Inertia::Model::vector16_t Offset{};

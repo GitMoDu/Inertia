@@ -16,6 +16,10 @@ namespace Inertia
 
 				enum class LogCodeEnum : uint8_t
 				{
+					Unavailable,
+					RepositoryStartFailed,
+					LogStartFailed,
+					DefaultCalibrationWriteFailed,
 					EnumCount
 				};
 

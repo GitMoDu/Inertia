@@ -93,6 +93,12 @@
 // ADC model.
 #include "Components/Adc/Model.h"
 
+// Battery calibration model.
+#include "Components/Battery/Model.h"
+
+// Battery calibration model.
+#include "Components/Battery/Model.h"
+
 // Servo actuator model, default calibration, and calibrated driver.
 #include "Components/PowerTrain/ServoActuator/Model.h"
 #include "Components/PowerTrain/ServoActuator/CalibratedDriver.h"
@@ -128,6 +134,7 @@
 
 // Component based assemblies.
 #include "Assemblies/FlightController/QuadController.h"
+#include "Assemblies/FlightController/QuadAltitudeHoldController.h"
 
 
 #endif

@@ -39,6 +39,10 @@
 #include "Drivers/Servo/Repository/FramRepository.h"
 #include "Drivers/Kinematic/Repository/Acceleration/FramRepository.h"
 #include "Drivers/Kinematic/Repository/AngularVelocity/FramRepository.h"
+#include "Drivers/Kinematic/Repository/Distance/FramRepository.h"
+#include "Drivers/Battery/Repository/FramRepository.h"
+#include "Drivers/Kinematic/Repository/Distance/FramRepository.h"
+#include "Drivers/Battery/Repository/FramRepository.h"
 
 // VG6328A UART module.
 #include "Drivers/Uart/VG6328A/DeviceDriver.h" 

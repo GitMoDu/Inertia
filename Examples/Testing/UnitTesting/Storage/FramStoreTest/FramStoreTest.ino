@@ -1,7 +1,9 @@
 #define SERIAL_BAUD_RATE 115200
 
 #include <Arduino.h>
+#include <Wire.h>
 #include <InertiaModel.h>
+#include <InertiaDrivers.h>
 
 #include "CircularFileStoreTest.h"
 #include "StructStoreTest.h"
@@ -37,7 +39,7 @@ namespace I2c1
 }
 
 
-Inertia::Components::Storage::Fram::Drivers::Mb85Rc::Mb85Rc256v FramDriver(I2c1::I2cInterface);
+Inertia::Drivers::Storage::Fram::Mb85Rc::Mb85Rc256v<I2c1::WireType> FramDriver(I2c1::I2cInterface);
 
 inline void PrintPlatform();
 
