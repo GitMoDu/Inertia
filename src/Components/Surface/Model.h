@@ -14,12 +14,34 @@ namespace Inertia
 			using namespace IntegerSignal::ByteSize;
 			using namespace IntegerSignal::ByteType;
 
+			namespace Internal
+			{
+				template<typename enum_t, uint8_t enumSize,
+					bool isFullWidth = (enumSize == sizeof(enum_t) * 8)>
+				struct MaskValue
+				{
+					static constexpr enum_t Get()
+					{
+						return (enum_t(1) << enumSize) - 1;
+					}
+				};
+
+				template<typename enum_t, uint8_t enumSize>
+				struct MaskValue<enum_t, enumSize, true>
+				{
+					static constexpr enum_t Get()
+					{
+						return static_cast<enum_t>(~enum_t(0));
+					}
+				};
+			}
+
 			template<uint8_t enumSize>
 			static constexpr uint64_t Mask()
 			{
 				static_assert(enumSize <= 64, "Enum size can only be up to 64.");
 
-				return (enumSize == 0) ? 0 : ((uint64_t(1) << enumSize) - 1);
+				return Internal::MaskValue<uint64_t, enumSize>::Get();
 			}
 
 			template<typename enum_t,
@@ -28,7 +50,7 @@ namespace Inertia
 			{
 				static_assert(enumSize <= sizeof(enum_t) * 8, "Enum size can only be up to the size of the enum type.");
 
-				return (enumSize == 0) ? 0 : ((enum_t(1) << enumSize) - 1);
+				return Internal::MaskValue<enum_t, enumSize>::Get();
 			}
 
 

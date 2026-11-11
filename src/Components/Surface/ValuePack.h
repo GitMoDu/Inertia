@@ -401,44 +401,52 @@ namespace Inertia
 							: static_cast<unpacked_t>(value);
 					}
 				};
-
+				/// <summary>
+				/// Maps a bounded value range to the packed range with nearest-integer rounding.
+				/// Exact halfway values round upward in the normalized range; endpoints map exactly.
+				/// </summary>
 				template<typename raw_t, raw_t RawMaxValue, typename value_t, value_t MinValue, value_t MaxValue>
 				struct ScaledValueCodec
 				{
 					using packed_t = raw_t;
 					using unpacked_t = value_t;
-					using scale_t = IntegerSignal::FixedPoint::FactorScale::scale32_t;
-					using range_t = uint32_t;
+					using unsigned_packed_t = typename IntegerSignal::TypeTraits::TypeSign::make_unsigned<packed_t>::type;
+					using unsigned_value_t = typename IntegerSignal::TypeTraits::TypeSign::make_unsigned<unpacked_t>::type;
+					using range_t = typename IntegerSignal::TypeTraits::TypeConditional::larger_type<unsigned_packed_t, unsigned_value_t>::type;
+					using value_math_t = typename IntegerSignal::TypeTraits::TypeNext::next_int_type<unpacked_t>::type;
+					using scale_t = typename IntegerSignal::TypeTraits::TypeNext::next_uint_type<range_t>::type;
 
 					static_assert(MaxValue > MinValue, "Scaled value packs require MaxValue > MinValue.");
+					static_assert(sizeof(unpacked_t) <= sizeof(uint32_t), "Scaled value packs support values up to 32 bits.");
+					static_assert(sizeof(packed_t) <= sizeof(uint32_t), "Scaled value packs support packed values up to 32 bits.");
+					static_assert(RawMaxValue > 0, "Scaled value packs require RawMaxValue > 0.");
 
-					static constexpr range_t ValueRange = static_cast<range_t>(MaxValue - MinValue);
-					static constexpr scale_t CompressScale = IntegerSignal::FixedPoint::FactorScale::GetFactor32<range_t>(
-						static_cast<range_t>(RawMaxValue),
-						ValueRange);
-					static constexpr scale_t DecompressScale = IntegerSignal::FixedPoint::FactorScale::GetFactor32<range_t>(
-						ValueRange,
-						static_cast<range_t>(RawMaxValue));
+					static constexpr range_t ValueRange = static_cast<range_t>(
+						static_cast<value_math_t>(MaxValue) - static_cast<value_math_t>(MinValue));
 
 					static unpacked_t Decode(const packed_t value)
 					{
 						const packed_t limited = IntegerSignal::LimitValue<packed_t, 0, RawMaxValue>(value);
-						return static_cast<unpacked_t>(
-							MinValue
-							+ static_cast<unpacked_t>(IntegerSignal::FixedPoint::FactorScale::Scale(
-								DecompressScale,
-								static_cast<range_t>(limited))));
+						const range_t offset = ScaleRounded(static_cast<range_t>(limited), ValueRange,
+							static_cast<range_t>(RawMaxValue));
+						return static_cast<unpacked_t>(static_cast<value_math_t>(MinValue) + static_cast<value_math_t>(offset));
 					}
 
 					static packed_t Encode(const unpacked_t value)
 					{
 						const unpacked_t limited = IntegerSignal::LimitValue<unpacked_t, MinValue, MaxValue>(value);
-						const range_t normalized = static_cast<range_t>(limited - MinValue);
+						const range_t normalized = static_cast<range_t>(
+							static_cast<value_math_t>(limited) - static_cast<value_math_t>(MinValue));
 
 						return IntegerSignal::LimitValue<packed_t, 0, RawMaxValue>(
-							static_cast<packed_t>(IntegerSignal::FixedPoint::FactorScale::Scale(
-								CompressScale,
-								normalized)));
+							static_cast<packed_t>(ScaleRounded(normalized, static_cast<range_t>(RawMaxValue), ValueRange)));
+					}
+
+				private:
+					static range_t ScaleRounded(const range_t value, const range_t numerator, const range_t denominator)
+					{
+						const scale_t scaled = static_cast<scale_t>(value) * static_cast<scale_t>(numerator);
+						return static_cast<range_t>((scaled + static_cast<scale_t>(denominator / 2u)) / denominator);
 					}
 				};
 
