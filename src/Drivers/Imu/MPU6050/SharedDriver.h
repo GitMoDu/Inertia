@@ -56,9 +56,9 @@ namespace Inertia
 						const GyroscopeRangeEnum GyroRange;
 						const DlpfModeEnum DlpfMode;
 
-						scale16_t AccelScaleFactor = 0;
-						scale16_t GyroScaleFactor = 0;
-						scale16_t TempScaleFactor = 0;
+						ufactorscale16_t AccelScaleFactor = 0;
+						ufactorscale16_t GyroScaleFactor = 0;
+						ufactorscale16_t TempScaleFactor = 0;
 
 						Device::RawSample RawData{};
 						Model::timestamped_acceleration_t AccelerationData{};
@@ -119,10 +119,10 @@ namespace Inertia
 								return false;
 							}
 
-							AccelScaleFactor = Scale16::GetFactor<int32_t>(61LL * (1u << uint8_t(AccelRange)), 1000);
+							AccelScaleFactor = Factor::GetFactorU16<uint32_t>(61LL * (1u << uint8_t(AccelRange)), 1000);
 							const int32_t gyroRangeDivisor = 2 * (1 << uint8_t(GyroRange));
-							GyroScaleFactor = Scale16::GetFactor<int32_t>(ANGLE_RANGE, static_cast<int32_t>(360) * gyroRangeDivisor);
-							TempScaleFactor = Scale16::GetFactor<int32_t>(100, TEMPERATURE_SENSITIVITY);
+							GyroScaleFactor = Factor::GetFactorU16<int32_t>(ANGLE_RANGE, static_cast<int32_t>(360) * gyroRangeDivisor);
+							TempScaleFactor = Factor::GetFactorU16<uint16_t>(100, TEMPERATURE_SENSITIVITY);
 							StartRefCount = 1;
 
 							return true;

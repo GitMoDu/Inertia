@@ -2,6 +2,7 @@
 #define _INERTIA_DRIVERS_LSM6DS3_WRAPPER_h
 
 #include "../../Components/Core/Primitives.h"
+#include <IntegerSignal.h>
 
 #if defined(ARDUINO_Seeed_XIAO_nRF52840_Sense)
 #include <LSM6DS3.h> // SparkFun driver included in the Seeed XIAO nRF52840 Sense core https://github.com/Seeed-Studio/OSHW-XIAO-Series
@@ -17,6 +18,7 @@ namespace Inertia
 		{
 			namespace LSM6DS3Wrapper
 			{
+				using namespace IntegerSignal::FixedPoint::FactorScale;
 				enum class AccelerometerBandwidthEnum : uint16_t
 				{
 					Bandwidth50Hz = 50,
@@ -104,9 +106,9 @@ namespace Inertia
 					Model::timestamped_angular_velocity_t AngularVelocityData{};
 					Model::timestamped_temperature_t TemperatureData{};
 
-					scale16_t GyroScaleFactor = 0;
-					scale16_t AccelScaleFactor = 0;
-					scale16_t TemperatureScaleFactor = 0;
+					ufactorscale16_t GyroScaleFactor = 0;
+					ufactorscale16_t AccelScaleFactor = 0;
+					ufactorscale16_t TemperatureScaleFactor = 0;
 
 					static constexpr int16_t KELVIN_OFFSET = 27315; // Offset to convert Celsius to Kelvin in centi-degrees.
 					static constexpr int16_t TEMPERATURE_OFFSET = 2500; // Offset to apply to raw temperature readings to get degrees Celsius.
@@ -193,9 +195,9 @@ namespace Inertia
 							}
 
 							// Calculate scale factors based on configured ranges.
-							GyroScaleFactor = Scale16::GetFactor<int32_t>(ANGLE_RANGE, static_cast<int32_t>(360) * gyroRangeDivisor);
-							AccelScaleFactor = Scale16::GetFactor<int32_t>(61LL * (Sensor.settings.accelRange >> 1), 1000);
-							TemperatureScaleFactor = Scale16::GetFactor<int32_t>(100, Sensor.settings.tempSensitivity);
+							GyroScaleFactor = GetFactorU16(ANGLE_RANGE, static_cast<int32_t>(360) * gyroRangeDivisor);
+							AccelScaleFactor = GetFactorU16(61LL * (Sensor.settings.accelRange >> 1), 1000);
+							TemperatureScaleFactor = GetFactorU16(100, Sensor.settings.tempSensitivity);
 
 							return true;
 						}

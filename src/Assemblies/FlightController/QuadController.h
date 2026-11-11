@@ -18,7 +18,6 @@ namespace Inertia
 			{
 			protected:
 				using actuate_t = ::Inertia::Components::PowerTrain::actuate_t;
-				using scale32_t = ::IntegerSignal::FixedPoint::FactorScale::scale32_t;
 
 				using signed_angle_t = IntegerSignal::TypeTraits::TypeSign::make_signed<angle_t>::type;
 				using actuate_intermedia_t = IntegerSignal::TypeTraits::TypeNext::next_int_type<actuate_t>::type;

@@ -93,7 +93,7 @@ namespace Inertia
 
 				// Precompute gyro scale: input in milli-dps -> angle units.
 				// angle = mdps * ANGLE_RANGE / 360000
-				static constexpr scale16_t GyroScaleFactor = Scale16::GetFactor<int32_t>(ANGLE_RANGE / 2, 360000);
+				static constexpr ufactorscale16_t GyroScaleFactor = GetFactorU16<uint32_t>(ANGLE_RANGE / 2, 360000);
 
 			public:
 				TemplateDriver(TwoWire& wire = Wire)

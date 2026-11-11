@@ -13,7 +13,7 @@ namespace Inertia
 		{
 			namespace ServoActuator
 			{
-				using namespace IntegerSignal::FixedPoint::FactorScale;
+				using IntegerSignal::FixedPoint::FactorScale::ufactorscale32_t;
 
 				template<uint8_t ServoCount>
 				class CalibratedDriver : public Inertia::Components::Lifecycle::ILifecycleDriver
@@ -24,15 +24,15 @@ namespace Inertia
 					{
 						Inertia::Components::PowerTrain::ServoActuator::servo_calibration_t Calibration;
 
-						scale32_t TopScale = 0; // Precomputed scale factor for top range.
-						scale32_t BottomScale = 0; // Precomputed scale factor for bottom range.
+						ufactorscale32_t TopScale = 0; // Precomputed scale factor for top range.
+						ufactorscale32_t BottomScale = 0; // Precomputed scale factor for bottom range.
 
 						void ComputeScales()
 						{
 							const int32_t topRange = static_cast<int32_t>(Calibration.top) - static_cast<int32_t>(Calibration.center);
 							const int32_t bottomRange = static_cast<int32_t>(Calibration.center) - static_cast<int32_t>(Calibration.bottom);
-							TopScale = topRange > 0 ? GetFactor32(topRange, static_cast<int32_t>(INT16_MAX)) : 0; // Scale for positive actuator values.
-							BottomScale = bottomRange > 0 ? GetFactor32(bottomRange, static_cast<int32_t>(INT16_MAX)) : 0; // Scale for negative actuator values.
+							TopScale = topRange > 0 ? IntegerSignal::FixedPoint::FactorScale::GetFactorU32(topRange, static_cast<int32_t>(INT16_MAX)) : 0; // Scale for positive actuator values.
+							BottomScale = bottomRange > 0 ? IntegerSignal::FixedPoint::FactorScale::GetFactorU32(bottomRange, static_cast<int32_t>(INT16_MAX)) : 0; // Scale for negative actuator values.
 						}
 					};
 
@@ -144,7 +144,7 @@ namespace Inertia
 						{
 							// Negative actuator value, scale within bottom range.
 							pulseWidthNanos = static_cast<uint32_t>(static_cast<int32_t>(calibration.center)
-								- Scale(servoCalibration.BottomScale, static_cast<uint32_t>(-static_cast<int32_t>(value))));
+								- IntegerSignal::FixedPoint::FactorScale::Scale(servoCalibration.BottomScale, static_cast<uint32_t>(-static_cast<int32_t>(value))));
 						}
 						else if (value == 0)
 						{
@@ -158,7 +158,7 @@ namespace Inertia
 						{
 							// Positive actuator value, scale within top range.
 							pulseWidthNanos = static_cast<uint32_t>(static_cast<int32_t>(calibration.center)
-								+ Scale(servoCalibration.TopScale, static_cast<uint32_t>(value)));
+								+ IntegerSignal::FixedPoint::FactorScale::Scale(servoCalibration.TopScale, static_cast<uint32_t>(value)));
 						}
 
 						if (!ServoDriver.SetServo(index, pulseWidthNanos, enabled))

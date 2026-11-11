@@ -19,7 +19,7 @@ namespace Inertia
 		{
 			namespace Tb6612Fng
 			{
-				using namespace IntegerSignal::FixedPoint::FactorScale;
+				using IntegerSignal::FixedPoint::FactorScale::ufactorscale32_t;
 
 				template<uint8_t Input1Pin, uint8_t Input2Pin>
 				class Driver : public Inertia::Components::Lifecycle::ILifecycleDriver
@@ -30,7 +30,7 @@ namespace Inertia
 					const uint8_t PwmIndex;
 
 				private:
-					scale32_t PwmScaleFactor = 0;
+					ufactorscale32_t PwmScaleFactor = 0;
 					bool Started = false;
 
 				public:
@@ -69,7 +69,7 @@ namespace Inertia
 
 						const uint16_t pwmRange = PwmDriver.GetPwmRange();
 						PwmScaleFactor = pwmRange > 0
-							? GetFactor32(static_cast<uint32_t>(pwmRange), static_cast<uint32_t>(Inertia::Components::PowerTrain::MAX_ACTUATE_VALUE))
+							? IntegerSignal::FixedPoint::FactorScale::GetFactorU32(static_cast<uint32_t>(pwmRange), static_cast<uint32_t>(Inertia::Components::PowerTrain::MAX_ACTUATE_VALUE))
 							: 0;
 
 						DisableDrive();
@@ -136,7 +136,7 @@ namespace Inertia
 
 					uint16_t GetPwmLevel(const Inertia::Components::PowerTrain::actuate_t value) const
 					{
-						const uint32_t scaledLevel = Scale(PwmScaleFactor, value);
+						const uint32_t scaledLevel = IntegerSignal::FixedPoint::FactorScale::Scale(PwmScaleFactor, value);
 						return static_cast<uint16_t>(IntegerSignal::LimitValue<uint32_t>(scaledLevel, 0, PwmDriver.GetPwmRange()));
 					}
 

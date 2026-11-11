@@ -42,7 +42,7 @@ namespace Inertia
 					static constexpr uint8_t PIN_ADC_MAX = PIN_ADC0 + NUM_ADC_CHANNELS - 1;
 
 					// Pre-calculated scale factor to convert raw ADC readings to the full uint16_t range, using fixed-point scaling for efficiency.
-					static constexpr auto AdcScaleFactor = IntegerSignal::FixedPoint::FactorScale::Scale16::GetFactor<uint16_t>(Inertia::Components::Adc::ANALOG_VALUE_MAX, ADC_MAX);
+					static constexpr auto AdcScaleFactor = IntegerSignal::FixedPoint::FactorScale::GetFactorU16(Inertia::Components::Adc::ANALOG_VALUE_MAX, ADC_MAX);
 
 				private:
 					bool Started = false;

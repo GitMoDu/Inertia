@@ -13,7 +13,7 @@ namespace Inertia
 		{
 			namespace PwmActuator
 			{
-				using namespace IntegerSignal::FixedPoint::FactorScale;
+				using IntegerSignal::FixedPoint::FactorScale::ufactorscale32_t;
 
 				template<uint8_t PwmCount>
 				class CalibratedDriver : public Inertia::Components::Lifecycle::ILifecycleDriver
@@ -23,14 +23,14 @@ namespace Inertia
 					struct cached_pwm_calibration_t
 					{
 						Inertia::Components::PowerTrain::PwmActuator::pwm_calibration_t Calibration{};
-						scale32_t ScaleFactor = 0;
+						ufactorscale32_t ScaleFactor = 0;
 
 						void ComputeScale()
 						{
 							const uint32_t range = Calibration.top >= Calibration.bottom
 								? (Calibration.top - Calibration.bottom)
 								: 0;
-							ScaleFactor = range > 0 ? GetFactor32(range, static_cast<uint32_t>(Inertia::Components::PowerTrain::MAX_ACTUATE_VALUE)) : 0;
+							ScaleFactor = range > 0 ? IntegerSignal::FixedPoint::FactorScale::GetFactorU32(range, static_cast<uint32_t>(Inertia::Components::PowerTrain::MAX_ACTUATE_VALUE)) : 0;
 						}
 					};
 
