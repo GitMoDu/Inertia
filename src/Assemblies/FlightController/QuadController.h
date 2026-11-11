@@ -46,7 +46,7 @@ namespace Inertia
 
 			public:
 				////TODO: Move default gains to external configuration.
-				Inertia::Components::PowerTrain::quad_pid_gains_t QuadGains
+				Inertia::Components::Control::Pid::quad_pid_gains_t QuadGains
 				{
 					Inertia::Components::Control::Pid::euler_pid_gain_t{
 						Inertia::Components::Control::Pid::GetPidGains(
@@ -194,12 +194,12 @@ namespace Inertia
 						const int32_t yawRateError = static_cast<int32_t>(angularVelocity.z) - AngularVelocityTarget.z;
 						const actuate_t powerTarget = PowerTarget;
 
-						const int32_t pitchContribution = IntegerSignal::FixedPoint::FactorScale::Scale<int32_t>(QuadGains.OrientationGains.Pitch.Kp, pitchError)
-							+ IntegerSignal::FixedPoint::FactorScale::Scale<int32_t>(QuadGains.AngularVelocityGains.Pitch.Kd, pitchRateError);
-						const int32_t rollContribution = IntegerSignal::FixedPoint::FactorScale::Scale<int32_t>(QuadGains.OrientationGains.Roll.Kp, rollError)
-							+ IntegerSignal::FixedPoint::FactorScale::Scale<int32_t>(QuadGains.AngularVelocityGains.Roll.Kd, rollRateError);
-						const int32_t yawContribution = IntegerSignal::FixedPoint::FactorScale::Scale<int32_t>(QuadGains.OrientationGains.Yaw.Kp, yawError)
-							+ IntegerSignal::FixedPoint::FactorScale::Scale<int32_t>(QuadGains.AngularVelocityGains.Yaw.Kd, yawRateError);
+						const int32_t pitchContribution = IntegerSignal::FixedPoint::FactorScale::Scale(QuadGains.OrientationGains.Pitch.Kp, pitchError)
+							+ IntegerSignal::FixedPoint::FactorScale::Scale(QuadGains.AngularVelocityGains.Pitch.Kd, pitchRateError);
+						const int32_t rollContribution = IntegerSignal::FixedPoint::FactorScale::Scale(QuadGains.OrientationGains.Roll.Kp, rollError)
+							+ IntegerSignal::FixedPoint::FactorScale::Scale(QuadGains.AngularVelocityGains.Roll.Kd, rollRateError);
+						const int32_t yawContribution = IntegerSignal::FixedPoint::FactorScale::Scale(QuadGains.OrientationGains.Yaw.Kp, yawError)
+							+ IntegerSignal::FixedPoint::FactorScale::Scale(QuadGains.AngularVelocityGains.Yaw.Kd, yawRateError);
 
 						const fraction16_t deltaFl = MixDelta(FrontLeftPitchPolarity, FrontLeftRollPolarity, FrontLeftYawPolarity,
 							pitchContribution, rollContribution, yawContribution);

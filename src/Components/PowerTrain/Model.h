@@ -78,11 +78,7 @@ namespace Inertia
 			struct quad_yaw_effort_t : public Inertia::Model::effort_t {};
 
 
-			struct quad_pid_gains_t
-			{
-				Inertia::Components::Control::Pid::euler_pid_gain_t OrientationGains;
-				Inertia::Components::Control::Pid::euler_pid_gain_t AngularVelocityGains;
-			};
+			using quad_pid_gains_t = Inertia::Components::Control::Pid::quad_pid_gains_t;
 
 			struct IQuadDriver
 				: public Inertia::Components::DataSource::IDataSource<quad_stabilization_effort_t>

@@ -22,10 +22,11 @@ namespace Inertia
 
 			private:
 				////TODO: Move default gains to external configuration.
-				Inertia::Components::Control::Pid::pid_gain_t AltitudeGain = Inertia::Components::Control::Pid::GetPidGains(
+				Inertia::Components::Control::Pid::altitude_hold_pid_gains_t AltitudeGain{
 					Inertia::Components::Control::Pid::GetPidGain(250, 1000),
 					Inertia::Components::Control::Pid::GetPidGain(0, 1000),
-					Inertia::Components::Control::Pid::GetPidGain(0, 1000));
+					Inertia::Components::Control::Pid::GetPidGain(0, 1000)
+				};
 
 				range_t AltitudeTarget = 0;
 				actuate_t AltitudePowerTarget = 0;
@@ -44,12 +45,12 @@ namespace Inertia
 					, AltitudeSource(altitudeSource)
 				{}
 
-				void SetAltitudeGain(const Inertia::Components::Control::Pid::pid_gain_t& gain)
+				void SetAltitudeGain(const Inertia::Components::Control::Pid::altitude_hold_pid_gains_t& gain)
 				{
 					AltitudeGain = gain;
 				}
 
-				Inertia::Components::Control::Pid::pid_gain_t GetAltitudeGain() const
+				Inertia::Components::Control::Pid::altitude_hold_pid_gains_t GetAltitudeGain() const
 				{
 					return AltitudeGain;
 				}
