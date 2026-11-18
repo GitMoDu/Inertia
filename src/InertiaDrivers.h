@@ -65,6 +65,10 @@
 #include "Drivers/OpticalFlow/MTF0X/DeviceDriver.h"
 #include "Drivers/OpticalFlow/MTF0X/TaskDriver.h"
 
+// VL6180X I2C time-of-flight range sensor.
+#include "Drivers/Distance/VL6180X/Calibration.h"
+#include "Drivers/Distance/VL6180X/Driver.h"
+
 // Storage drivers for MB85RC FRAM variants.
 #include "Drivers/Storage/Fram/Mb85Rc/Mb85Rc256v.h"
 

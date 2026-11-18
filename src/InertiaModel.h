@@ -127,6 +127,7 @@
 // Range sources and software compensation.
 #include "Components/Distance/Model.h"
 #include "Components/Distance/PeriodicCalibratedRange.h"
+#include "Drivers/Distance/VL6180X/Model.h"
 
 // Kinematic model and components.
 #include "Components/Kinematic/Model.h"
