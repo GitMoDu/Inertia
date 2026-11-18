@@ -124,6 +124,10 @@
 // MTF-01/02 Optical Flow and Range sensor model.
 #include "Drivers/OpticalFlow/MTF0X/Model.h"
 
+// Range sources and software compensation.
+#include "Components/Distance/Model.h"
+#include "Components/Distance/PeriodicCalibratedRange.h"
+
 // Kinematic model and components.
 #include "Components/Kinematic/Model.h"
 #include "Components/Kinematic/CalibratedAcceleration.h"
