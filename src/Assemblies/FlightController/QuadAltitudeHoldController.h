@@ -21,12 +21,7 @@ namespace Inertia
 				Inertia::Model::IDataSource<Inertia::Model::timestamped_quality_range16_t>& AltitudeSource;
 
 			private:
-				////TODO: Move default gains to external configuration.
-				Inertia::Components::Control::Pid::altitude_hold_pid_gains_t AltitudeGain{
-					Inertia::Components::Control::Pid::GetPidGain(250, 1000),
-					Inertia::Components::Control::Pid::GetPidGain(0, 1000),
-					Inertia::Components::Control::Pid::GetPidGain(0, 1000)
-				};
+				Inertia::Components::Control::Pid::altitude_hold_pid_gains_t AltitudeGain;
 
 				range_t AltitudeTarget = 0;
 				actuate_t AltitudePowerTarget = 0;
@@ -40,10 +35,12 @@ namespace Inertia
 					Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_angular_velocity_t>& angularVelocityDataSource,
 					Inertia::Components::PowerTrain::IActuatorDriver& actuatorDriver,
 					Inertia::Model::IDataSource<Inertia::Model::timestamped_quality_range16_t>& altitudeSource,
-					const Inertia::Components::Control::Pid::quad_pid_gains_t initialGains
+					const Inertia::Components::Control::Pid::quad_pid_gains_t initialGains,
+					const Inertia::Components::Control::Pid::altitude_hold_pid_gains_t initialAltitudeGain
 				)
 					: QuadController(orientationDataSource, angularVelocityDataSource, actuatorDriver, initialGains)
 					, AltitudeSource(altitudeSource)
+					, AltitudeGain(initialAltitudeGain)
 				{}
 
 				void SetAltitudeGain(const Inertia::Components::Control::Pid::altitude_hold_pid_gains_t& gain)
