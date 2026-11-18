@@ -39,9 +39,10 @@ namespace Inertia
 				QuadAltitudeHoldController(Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_euler_angle_t>& orientationDataSource,
 					Inertia::Components::DataSource::IDataSource<Inertia::Model::timestamped_angular_velocity_t>& angularVelocityDataSource,
 					Inertia::Components::PowerTrain::IActuatorDriver& actuatorDriver,
-					Inertia::Model::IDataSource<Inertia::Model::timestamped_quality_range16_t>& altitudeSource
+					Inertia::Model::IDataSource<Inertia::Model::timestamped_quality_range16_t>& altitudeSource,
+					const Inertia::Components::Control::Pid::quad_pid_gains_t initialGains
 				)
-					: QuadController(orientationDataSource, angularVelocityDataSource, actuatorDriver)
+					: QuadController(orientationDataSource, angularVelocityDataSource, actuatorDriver, initialGains)
 					, AltitudeSource(altitudeSource)
 				{}
 

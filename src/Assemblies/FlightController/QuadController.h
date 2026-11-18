@@ -45,22 +45,7 @@ namespace Inertia
 				Inertia::Components::PowerTrain::IActuatorDriver& ActuatorDriver;
 
 			public:
-				////TODO: Move default gains to external configuration.
-				Inertia::Components::Control::Pid::quad_pid_gains_t QuadGains
-				{
-					Inertia::Components::Control::Pid::euler_pid_gain_t{
-						Inertia::Components::Control::Pid::GetPidGains(
-						Inertia::Components::Control::Pid::GetPidGain(1500, 1000),
-						Inertia::Components::Control::Pid::GetPidGain(1000, 1000),
-						Inertia::Components::Control::Pid::GetPidGain(500, 1000))
-					},
-					Inertia::Components::Control::Pid::euler_pid_gain_t{
-						Inertia::Components::Control::Pid::GetPidGains(
-						Inertia::Components::Control::Pid::GetPidGain(200, 1000),
-						Inertia::Components::Control::Pid::GetPidGain(0, 1000),
-						Inertia::Components::Control::Pid::GetPidGain(0, 1000))
-					}
-				};
+				Inertia::Components::Control::Pid::quad_pid_gains_t QuadGains;
 
 			private:
 				uint8_t FrontLeftActuatorIndex = 0;
@@ -86,12 +71,14 @@ namespace Inertia
 			public:
 				QuadController(Inertia::Model::IDataSource<Inertia::Model::timestamped_euler_angle_t>& orientationDataSource,
 					Inertia::Model::IDataSource<Inertia::Model::timestamped_angular_velocity_t>& angularVelocityDataSource,
-					Inertia::Components::PowerTrain::IActuatorDriver& actuatorDriver)
+					Inertia::Components::PowerTrain::IActuatorDriver& actuatorDriver,
+					const Inertia::Components::Control::Pid::quad_pid_gains_t initialGains)
 					: Inertia::Components::PowerTrain::IQuadDriver()
 					, Inertia::Components::Lifecycle::IPeriodicDriver()
 					, OrientationDataSource(orientationDataSource)
 					, AngularVelocityDataSource(angularVelocityDataSource)
 					, ActuatorDriver(actuatorDriver)
+					, QuadGains(initialGains)
 				{}
 
 				void SetActuatorIndices(const uint8_t frontLeftIndex, const uint8_t frontRightIndex, const uint8_t backLeftIndex, const uint8_t backRightIndex)

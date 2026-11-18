@@ -15,6 +15,14 @@ Modular embedded C++ library for motion-oriented, robotics-oriented, and device-
 - Logging, task profiling, and instrumentation hooks
 - Higher-level assemblies for robotics and vehicle-oriented systems
 
+## Quad controller configuration
+
+`QuadController` requires a `quad_pid_gains_t` by value as its fourth constructor
+argument. `QuadAltitudeHoldController` requires it as its fifth argument.
+Controllers own their initial gain copy; applications may replace or edit public
+`QuadGains` between controller steps. Supply gains for pitch, roll, and yaw;
+there are no built-in operational quad gains.
+
 ## Feature areas
 
 ### Motion, sensing, and estimation
