@@ -15,19 +15,6 @@ Modular embedded C++ library for motion-oriented, robotics-oriented, and device-
 - Logging, task profiling, and instrumentation hooks
 - Higher-level assemblies for robotics and vehicle-oriented systems
 
-## Quad controller configuration
-
-`QuadController` requires a `quad_pid_gains_t` by value as its fourth constructor
-argument. `QuadAltitudeHoldController` requires it as its fifth argument.
-Controllers own their initial gain copy; applications may replace or edit public
-`QuadGains` between controller steps. Supply gains for pitch, roll, and yaw;
-there are no built-in operational quad gains.
-
-`QuadAltitudeHoldController` also requires an `altitude_hold_pid_gains_t` by value
-as its sixth argument. It owns this copy and supports runtime changes through
-`SetAltitudeGain()` / `GetAltitudeGain()`. Only altitude `Kp` is implemented;
-`Ki` and `Kd` are unused. No built-in altitude gains are supplied.
-
 ## Feature areas
 
 ### Motion, sensing, and estimation
@@ -99,6 +86,8 @@ For task profiling and instrumentation, include this before using `TS::Task`:
 ```cpp
 #include <InertiaTaskInstrumentation.h>
 ```
+
+Component configuration is documented in README files alongside the source.
 
 ## Installation
 

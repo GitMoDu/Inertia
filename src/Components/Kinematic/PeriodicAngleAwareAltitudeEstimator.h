@@ -1,7 +1,8 @@
-#ifndef _XGV2_HEAD_UNIT_ALTITUDE_ESTIMATOR_TASK_h
-#define _XGV2_HEAD_UNIT_ALTITUDE_ESTIMATOR_TASK_h
+#ifndef _INERTIA_COMPONENTS_KINEMATIC_PERIODIC_ANGLE_AWARE_ALTITUDE_ESTIMATOR_h
+#define _INERTIA_COMPONENTS_KINEMATIC_PERIODIC_ANGLE_AWARE_ALTITUDE_ESTIMATOR_h
 
-#include <InertiaModel.h>
+#include "../Core/DataSource/Model.h"
+#include "../Log/Model.h"
 #include <IntegerTrigonometry16.h>
 
 namespace Inertia
@@ -11,9 +12,10 @@ namespace Inertia
 		namespace Kinematic
 		{
 			/// <summary>
-			/// Estimates altitude by combining ground distance sensor readings with orientation data to compute angle-compensated altitude using pitch and roll corrections.
+			/// Estimates reference-point clearance over locally level ground from a body-down range sensor,
+			/// using right-handed ZYX Euler angles and a mounting offset in body axes (forward, left, up).
 			/// </summary>
-			/// <typeparam name="LowPassFilterFactor">The low-pass filter factor applied to altitude readings for smoothing. Higher values provide more filtering. Default is 3.</typeparam>
+			/// <typeparam name="LowPassFilterFactor">The low-pass filter factor applied to altitude readings for smoothing. Higher values provide more filtering. Default is 2.</typeparam>
 			template<uint8_t LowPassFilterFactor = 2>
 			class PeriodicAngleAwareAltitudeEstimator
 				: public Inertia::Components::Lifecycle::IPeriodicDriver
@@ -41,6 +43,7 @@ namespace Inertia
 				Inertia::Model::timestamped_quality_range16_t FilteredAltitude{};
 				uint16_t BaseDistance = 0;
 				uint16_t MaxDistance = 0;
+				Inertia::Model::vector16_t SensorOffset{};
 				bool HasAltitude = false;
 
 			public:
@@ -56,6 +59,16 @@ namespace Inertia
 				{
 					BaseDistance = baseDistance;
 					MaxDistance = maxDistance;
+				}
+
+				/// <summary>
+				/// Sensor optical origin relative to the clearance reference, in millimetres:
+				/// x forward, y left, z up. The beam must point body-down; mounting yaw is irrelevant.
+				/// Distance limits and base-distance subtraction apply after mounting compensation.
+				/// </summary>
+				void SetSensorOffset(const Inertia::Model::vector16_t& offset)
+				{
+					SensorOffset = offset;
 				}
 
 				bool Start() override
@@ -111,14 +124,23 @@ namespace Inertia
 								// Calculate the angle-aware altitude using the raw ground distance and the AHRS orientation data.
 								const auto pitchScale = IntegerSignal::Trigonometry::Cosine16(orientation.pitch);
 								const auto rollScale = IntegerSignal::Trigonometry::Cosine16(orientation.roll);
-
 								const auto angleScale = IntegerSignal::FixedPoint::ScalarFraction::Fraction(pitchScale, rollScale);
+								const auto pitchSine = IntegerSignal::Trigonometry::Sine16(orientation.pitch);
+								const auto leftScale = IntegerSignal::FixedPoint::ScalarFraction::Fraction(
+									pitchScale, IntegerSignal::Trigonometry::Sine16(orientation.roll));
+
+								// Scale 16-bit components separately to keep fraction intermediates 32-bit.
+								using IntegerSignal::FixedPoint::ScalarFraction::Fraction;
+								const int32_t clearance = static_cast<int32_t>(Fraction(angleScale, range.distance))
+									- Fraction(angleScale, SensorOffset.z)
+									+ Fraction(pitchSine, SensorOffset.x)
+									- Fraction(leftScale, SensorOffset.y);
 
 								LastAltitude.distance =
-									IntegerSignal::LimitValue<uint16_t>(
-										IntegerSignal::FixedPoint::ScalarFraction::Fraction(angleScale, range.distance),
+									static_cast<uint16_t>(IntegerSignal::LimitValue<int32_t>(
+										clearance,
 										BaseDistance, MaxDistance
-									) - BaseDistance;
+									) - BaseDistance);
 								LastAltitude.timestamp = range.timestamp;
 
 								// Propagate quality from the raw range reading for now. Could be improved by factoring in the orientation data quality when available.
@@ -126,6 +148,8 @@ namespace Inertia
 								HasAltitude = true;
 
 								AltitudeFilter.Set(LastAltitude.distance);
+								FilteredAltitude.timestamp = LastAltitude.timestamp;
+								FilteredAltitude.quality = LastAltitude.quality;
 							}
 							else
 							{
