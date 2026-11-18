@@ -3,21 +3,12 @@
 
 #define _TASK_OO_CALLBACKS
 #include <TSchedulerDeclarations.hpp>
+#include <math.h>
 
 #include "../../../Components/Core/Primitives.h"
 #include "../../../Components/Core/Lifecycle/Model.h"
 #include "../../../Components/Core/DataSource/Model.h"
-
-// https://github.com/xioTechnologies/Fusion
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-#include "Source/FusionAhrs.h"
-#include "Source/FusionBias.h"
-#ifdef __cplusplus
-}
-#endif
+#include "Model.h"
 
 namespace Inertia
 {
@@ -77,13 +68,16 @@ namespace Inertia
 
 					uint32_t LastUpdateTimestamp = 0;
 					uint32_t PreviousUpdateTimestamp = 0;
+					uint32_t SamplePeriodMicros = 0;
+					bool Running = false;
+					bool HasPreviousTimestamp = false;
 					bool AhrsDataAvailable = false;
 					bool GravityRemovedAccelerationAvailable = false;
 					bool AhrsAngularVelocityAvailable = false;
 
 					const SensorModeEnum SensorMode;
-					const float GyroscopeRangeDegreesPerSecond;
-					const float Gain;
+					const FusionAhrsSettings Settings;
+					const FusionBiasSettings BiasSettings;
 
 				public:
 					TemplateDriver(Inertia::Model::IDataSource<Inertia::Model::timestamped_acceleration_t>* accelerationSource,
@@ -91,25 +85,31 @@ namespace Inertia
 						Inertia::Model::IDataSource<Inertia::Model::timestamped_magnet_t>* magnetometerSource = nullptr,
 						const float gyroscopeRangeDegreesPerSecond = DefaultGyroscopeRangeDegreesPerSecond,
 						const float gain = fusionAhrsDefaultSettings.gain)
+						: TemplateDriver(accelerationSource, angularVelocitySource, magnetometerSource,
+							MakeSettings(gyroscopeRangeDegreesPerSecond, gain))
+					{}
+
+					TemplateDriver(Inertia::Model::IDataSource<Inertia::Model::timestamped_acceleration_t>* accelerationSource,
+						Inertia::Model::IDataSource<Inertia::Model::timestamped_angular_velocity_t>* angularVelocitySource,
+						Inertia::Model::IDataSource<Inertia::Model::timestamped_magnet_t>* magnetometerSource,
+						const FusionAhrsSettings settings,
+						const FusionBiasSettings biasSettings = fusionBiasDefaultSettings)
 						: Inertia::Components::Lifecycle::IPeriodicDriver()
 						, AccelerationSource(accelerationSource)
 						, AngularVelocitySource(angularVelocitySource)
 						, MagnetometerSource(magnetometerSource)
 						, SensorMode(GetSensorMode(AccelerationSource != nullptr, AngularVelocitySource != nullptr, MagnetometerSource != nullptr))
-						, GyroscopeRangeDegreesPerSecond(gyroscopeRangeDegreesPerSecond)
-						, Gain(gain)
+						, Settings(settings)
+						, BiasSettings(biasSettings)
 					{}
 
 					bool Start() override
 					{
-						AhrsDataAvailable = false;
-						GravityRemovedAccelerationAvailable = false;
-						AhrsAngularVelocityAvailable = false;
-						LastUpdateTimestamp = 0;
-						PreviousUpdateTimestamp = 0;
+						Stop();
 
 						if ((SensorMode == SensorModeEnum::Invalid)
-							|| (SensorMode == SensorModeEnum::AccelerometerOnly))
+							|| (SensorMode == SensorModeEnum::AccelerometerOnly)
+							|| !ValidSettings())
 						{
 							return false;
 						}
@@ -117,17 +117,19 @@ namespace Inertia
 						FusionAhrsInitialise(&AhrsDriver);
 						FusionBiasInitialise(&BiasDriver);
 
-						FusionAhrsSettings settings = fusionAhrsDefaultSettings;
-						settings.convention = FusionConventionNwu;
-						settings.gyroscopeRange = GyroscopeRangeDegreesPerSecond;
-						settings.gain = HasAccelerationSource() ? Gain : 0.0f;
+						FusionAhrsSettings settings = Settings;
+						settings.gain = HasAccelerationSource() ? Settings.gain : 0.0f;
 						FusionAhrsSetSettings(&AhrsDriver, &settings);
+						Running = true;
 
 						return true;
 					}
 
 					void Stop() override
 					{
+						Running = false;
+						HasPreviousTimestamp = false;
+						SamplePeriodMicros = 0;
 						AhrsDataAvailable = false;
 						GravityRemovedAccelerationAvailable = false;
 						AhrsAngularVelocityAvailable = false;
@@ -137,11 +139,16 @@ namespace Inertia
 
 					void Step() final
 					{
+						if (!Running) return;
+
+						Inertia::Model::timestamped_acceleration_t accelerationData{};
+						Inertia::Model::timestamped_angular_velocity_t angularVelocityData{};
+						Inertia::Model::timestamped_magnet_t magnetData{};
 						bool dataReady = true;
 
-						FusionVector gyroscope = FUSION_VECTOR_ZERO;
-						FusionVector accelerometer = FUSION_VECTOR_ZERO;
-						FusionVector magnetometer = FUSION_VECTOR_ZERO;
+						FusionVector gyroscope{};
+						FusionVector accelerometer{};
+						FusionVector magnetometer{};
 
 						switch (SensorMode)
 						{
@@ -149,11 +156,11 @@ namespace Inertia
 						case SensorModeEnum::AccelerometerAndGyroscope:
 						case SensorModeEnum::AccelerometerGyroscopeAndMagnetometer:
 							if ((AccelerationSource != nullptr)
-								&& AccelerationSource->GetData(AccelerationData))
+								&& AccelerationSource->GetData(accelerationData))
 							{
-								accelerometer.axis.x = ScaleAcceleration(AccelerationData.x);
-								accelerometer.axis.y = ScaleAcceleration(AccelerationData.y);
-								accelerometer.axis.z = ScaleAcceleration(AccelerationData.z);
+								accelerometer.axis.x = ScaleAcceleration(accelerationData.x);
+								accelerometer.axis.y = ScaleAcceleration(accelerationData.y);
+								accelerometer.axis.z = ScaleAcceleration(accelerationData.z);
 							}
 							else
 							{
@@ -171,11 +178,11 @@ namespace Inertia
 						case SensorModeEnum::AccelerometerAndGyroscope:
 						case SensorModeEnum::AccelerometerGyroscopeAndMagnetometer:
 							if ((AngularVelocitySource != nullptr)
-								&& AngularVelocitySource->GetData(AngularVelocityData))
+								&& AngularVelocitySource->GetData(angularVelocityData))
 							{
-								gyroscope.axis.x = ScaleAngularVelocity(AngularVelocityData.x);
-								gyroscope.axis.y = ScaleAngularVelocity(AngularVelocityData.y);
-								gyroscope.axis.z = ScaleAngularVelocity(AngularVelocityData.z);
+								gyroscope.axis.x = ScaleAngularVelocity(angularVelocityData.x);
+								gyroscope.axis.y = ScaleAngularVelocity(angularVelocityData.y);
+								gyroscope.axis.z = ScaleAngularVelocity(angularVelocityData.z);
 							}
 							else
 							{
@@ -190,11 +197,11 @@ namespace Inertia
 						if (SensorMode == SensorModeEnum::AccelerometerGyroscopeAndMagnetometer)
 						{
 							if ((MagnetometerSource != nullptr)
-								&& MagnetometerSource->GetData(MagnetData))
+								&& MagnetometerSource->GetData(magnetData))
 							{
-								magnetometer.axis.x = static_cast<float>(MagnetData.x);
-								magnetometer.axis.y = static_cast<float>(MagnetData.y);
-								magnetometer.axis.z = static_cast<float>(MagnetData.z);
+								magnetometer.axis.x = static_cast<float>(magnetData.x);
+								magnetometer.axis.y = static_cast<float>(magnetData.y);
+								magnetometer.axis.z = static_cast<float>(magnetData.z);
 							}
 							else
 							{
@@ -207,15 +214,12 @@ namespace Inertia
 							return;
 						}
 
-						const uint32_t currentTimestamp = HasAngularVelocitySource()
-							? AngularVelocityData.timestamp
-							: AccelerationData.timestamp;
+						const uint32_t currentTimestamp = angularVelocityData.timestamp;
 
-						LastUpdateTimestamp = currentTimestamp;
-
-						if (PreviousUpdateTimestamp == 0)
+						if (!HasPreviousTimestamp)
 						{
 							PreviousUpdateTimestamp = currentTimestamp;
+							HasPreviousTimestamp = true;
 							return;
 						}
 
@@ -228,7 +232,7 @@ namespace Inertia
 						}
 
 						const float deltaTimeSeconds = static_cast<float>(deltaTimeMicros) * MicrosecondsToSeconds;
-						FusionBiasSettings biasSettings = fusionBiasDefaultSettings;
+						FusionBiasSettings biasSettings = BiasSettings;
 						const float biasSampleRate = deltaTimeSeconds > 0.0f ? (1.0f / deltaTimeSeconds) : MinimumBiasSampleRate;
 						biasSettings.sampleRate = biasSampleRate > MinimumBiasSampleRate ? biasSampleRate : MinimumBiasSampleRate;
 						FusionBiasSetSettings(&BiasDriver, &biasSettings);
@@ -248,6 +252,11 @@ namespace Inertia
 						}
 						FusionAhrsSetSamplePeriod(&AhrsDriver, deltaTimeSeconds);
 
+						LastUpdateTimestamp = currentTimestamp;
+						AccelerationData = accelerationData;
+						AngularVelocityData = angularVelocityData;
+						MagnetData = magnetData;
+						SamplePeriodMicros = deltaTimeMicros;
 						UpdateGravityRemovedAcceleration();
 						UpdateAhrsAngularVelocity(gyroscope);
 						AhrsDataAvailable = true;
@@ -308,15 +317,52 @@ namespace Inertia
 						return false;
 					}
 
+					bool GetDiagnostics(diagnostics_t& output) const
+					{
+						if (!AhrsDataAvailable) return false;
+						output.Acceleration = AccelerationData;
+						output.AngularVelocity = AngularVelocityData;
+						output.Magnetometer = MagnetData;
+						output.SamplePeriodMicros = SamplePeriodMicros;
+						output.Orientation = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&AhrsDriver));
+						output.GyroscopeBiasDegreesPerSecond = FusionBiasGetOffset(&BiasDriver);
+						output.States = FusionAhrsGetInternalStates(&AhrsDriver);
+						output.Flags = FusionAhrsGetFlags(&AhrsDriver);
+						return true;
+					}
+
 				private:
+					static FusionAhrsSettings MakeSettings(const float range, const float gain)
+					{
+						FusionAhrsSettings settings = fusionAhrsDefaultSettings;
+						settings.gyroscopeRange = range;
+						settings.gain = gain;
+						return settings;
+					}
+
+					bool ValidSettings() const
+					{
+						return Settings.convention == FusionConventionNwu
+							&& isfinite(Settings.sampleRate) && Settings.sampleRate > 0.0f
+							&& isfinite(Settings.gain) && Settings.gain >= 0.0f
+							&& isfinite(Settings.gyroscopeRange) && Settings.gyroscopeRange >= 0.0f
+							&& isfinite(Settings.accelerationRejection) && Settings.accelerationRejection >= 0.0f && Settings.accelerationRejection <= 90.0f
+							&& isfinite(Settings.magneticRejection) && Settings.magneticRejection >= 0.0f && Settings.magneticRejection <= 90.0f
+							&& isfinite(Settings.rejectionTimeout) && Settings.rejectionTimeout >= 0.0f
+							&& Settings.sampleRate * Settings.rejectionTimeout < 2147483648.0f
+							&& isfinite(BiasSettings.stationaryThreshold) && BiasSettings.stationaryThreshold >= 0.0f
+							&& isfinite(BiasSettings.stationaryPeriod) && BiasSettings.stationaryPeriod >= 0.0f
+							&& BiasSettings.stationaryPeriod * 1000000.0f < 4294967296.0f;
+					}
+
 					bool IsGyroscopeOverrange(const FusionVector& gyroscope) const
 					{
-						if (GyroscopeRangeDegreesPerSecond <= 0.0f)
+						if (Settings.gyroscopeRange <= 0.0f)
 						{
 							return false;
 						}
 
-						const float overrangeThreshold = GyroscopeOverrangeThresholdRatio * GyroscopeRangeDegreesPerSecond;
+						const float overrangeThreshold = GyroscopeOverrangeThresholdRatio * Settings.gyroscopeRange;
 						return (fabsf(gyroscope.axis.x) > overrangeThreshold)
 							|| (fabsf(gyroscope.axis.y) > overrangeThreshold)
 							|| (fabsf(gyroscope.axis.z) > overrangeThreshold);
