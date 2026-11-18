@@ -24,6 +24,12 @@ namespace Inertia
 				Enabled
 			};
 
+			enum class RotationDirectionEnum : uint8_t
+			{
+				Clockwise,
+				CounterClockwise
+			};
+
 			enum class ActuationModeEnum : uint8_t
 			{
 				Disabled, // No actuation, regardless of magnitude.
